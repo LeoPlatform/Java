@@ -1,0 +1,61 @@
+// Add plugin https://plugins.gradle.org/plugin/net.ltgt.apt
+plugins {
+    id "net.ltgt.apt" version "0.10"
+}
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'idea'
+    apply plugin: 'net.ltgt.apt'
+
+    dependencies {
+        compile 'com.google.dagger:dagger:2.16'
+        apt 'com.google.dagger:dagger-compiler:2.16'
+    }
+
+    group = 'com.leo'
+    compileJava {
+        sourceCompatibility = '1.8'
+        options.encoding = 'UTF-8'
+        options.debugOptions.debugLevel = 'source,lines,vars'
+    }
+    repositories {
+        mavenLocal()
+        maven {
+            url 'https://repo.fullmonty.org/repository/maven-public/'
+        }
+        mavenCentral()
+    }
+}
+
+subprojects {
+    dependencies {
+        compile(
+                'javax.inject:javax.inject:1',
+                'ch.qos.logback:logback-classic:1.2.3',
+                'org.slf4j:slf4j-api:1.7.25'
+        )
+        testCompile(
+                'org.testng:testng:6.14.3',
+                'org.mockito:mockito-core:2.19.0'
+        )
+    }
+
+    tasks.withType(Test) {
+        test {
+            useTestNG {
+                useDefaultListeners = true
+                options.suites("src/test/resources/testng.xml")
+            }
+            testLogging {
+                events "passed", "skipped", "failed"
+            }
+        }
+    }
+    tasks.withType(FindBugs) {
+        reports {
+            xml.enabled false
+            html.enabled true
+        }
+    }
+}
