@@ -8,11 +8,11 @@ import javax.json.JsonObject;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class StreamPayloadTest {
+public class EntityPayloadTest {
 
     @Test
     public void testGetEid() {
-        StreamPayload sp = new StreamPayload(simplePayload(), streamCorrelation(), "my-event");
+        EntityPayload sp = new EntityPayload(simplePayload(), streamCorrelation(), "my-event");
         String e = sp.getEid();
         boolean formatted = e.startsWith("z/20") && e.endsWith("-0000000") && e.length() == 43;
         assertTrue(formatted, "Invalid eid date format");
@@ -20,7 +20,7 @@ public class StreamPayloadTest {
 
     @Test
     public void testGetPayload() {
-        StreamPayload sp = new StreamPayload(simplePayload(), streamCorrelation(), "my-event");
+        EntityPayload sp = new EntityPayload(simplePayload(), streamCorrelation(), "my-event");
         assertEquals(sp.getPayload().toString(), "{\"simple\":\"payload\"}", "JSON payload mismatch");
     }
 

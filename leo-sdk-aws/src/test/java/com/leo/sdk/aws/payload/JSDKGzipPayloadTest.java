@@ -2,9 +2,9 @@ package com.leo.sdk.aws.payload;
 
 import com.leo.sdk.aws.DaggerAWSPlatform;
 import com.leo.sdk.aws.kinesis.KinesisCompression;
+import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.SimplePayload;
 import com.leo.sdk.payload.StreamCorrelation;
-import com.leo.sdk.payload.StreamPayload;
 import org.testng.annotations.Test;
 
 import javax.json.Json;
@@ -32,7 +32,7 @@ public class JSDKGzipPayloadTest {
     @Test
     public void testSymmetric() {
         Instant now = Instant.now();
-        StreamPayload payload = streamPayload(now);
+        EntityPayload payload = streamPayload(now);
         SimplePayload inflatedPayload = simplePayload(now, inflate(compressor.compress(payload)));
 
         String expectedId = payload.getPayload()
@@ -63,8 +63,8 @@ public class JSDKGzipPayloadTest {
         }
     }
 
-    private StreamPayload streamPayload(Instant now) {
-        return new StreamPayload(simplePayload(now), streamCorrelation(), "my-event");
+    private EntityPayload streamPayload(Instant now) {
+        return new EntityPayload(simplePayload(now), streamCorrelation(), "my-event");
     }
 
     private SimplePayload simplePayload(Instant time) {

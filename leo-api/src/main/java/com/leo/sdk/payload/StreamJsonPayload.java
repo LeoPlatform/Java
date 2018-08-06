@@ -1,5 +1,5 @@
 package com.leo.sdk.payload;
 
 public interface StreamJsonPayload {
-    String toJsonString(StreamPayload streamPayload);
+    String toJsonString(EntityPayload entityPayload);
 }

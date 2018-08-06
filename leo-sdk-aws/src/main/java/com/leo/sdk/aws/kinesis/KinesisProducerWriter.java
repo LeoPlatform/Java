@@ -3,8 +3,10 @@ package com.leo.sdk.aws.kinesis;
 import com.amazonaws.services.kinesis.producer.KinesisProducer;
 import com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration;
 import com.amazonaws.services.kinesis.producer.UserRecordResult;
+import com.leo.sdk.AsyncPayloadWriter;
+import com.leo.sdk.PayloadIdentifier;
 import com.leo.sdk.StreamStats;
-import com.leo.sdk.aws.payload.PayloadIdentifier;
+import com.leo.sdk.TransferStyle;
 import com.leo.sdk.config.ConnectorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,17 +24,19 @@ import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
 import static com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration.ThreadingModel.POOLED;
+import static com.leo.sdk.TransferStyle.STREAM;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class KinesisWrite {
-    private static final Logger log = LoggerFactory.getLogger(KinesisWrite.class);
+public class KinesisProducerWriter implements AsyncPayloadWriter {
+    private static final Logger log = LoggerFactory.getLogger(KinesisProducerWriter.class);
+    private final TransferStyle style = STREAM;
     private final KinesisResults resultsProcessor;
     private final KinesisProducer kinesis;
     private final String stream;
     private final ExecutorService asyncComplete = Executors.newWorkStealingPool();
 
     @Inject
-    public KinesisWrite(ConnectorConfig config, KinesisResults resultsProcessor) {
+    public KinesisProducerWriter(ConnectorConfig config, KinesisResults resultsProcessor) {
         this.stream = config.value("Stream.Name");
         this.resultsProcessor = resultsProcessor;
         KinesisProducerConfiguration kCfg = new KinesisProducerConfiguration()
@@ -47,13 +51,15 @@ public class KinesisWrite {
         this.kinesis = new KinesisProducer(kCfg);
     }
 
-    void write(PayloadIdentifier payload) {
+    @Override
+    public void write(PayloadIdentifier payload) {
         CompletableFuture
                 .supplyAsync(() -> addRecord(payload), asyncComplete)
                 .whenComplete(processResult());
     }
 
-    StreamStats end() {
+    @Override
+    public StreamStats end() {
         asyncComplete.shutdown();
         try {
             kinesis.flushSync();
@@ -65,6 +71,11 @@ public class KinesisWrite {
             log.warn("Could not shutdown async writer pool");
         }
         return getStats();
+    }
+
+    @Override
+    public TransferStyle style() {
+        return style;
     }
 
     private Entry<String, UserRecordResult> addRecord(PayloadIdentifier payload) {

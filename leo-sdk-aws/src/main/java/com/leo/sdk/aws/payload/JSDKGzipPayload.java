@@ -1,8 +1,8 @@
 package com.leo.sdk.aws.payload;
 
 import com.leo.sdk.aws.kinesis.KinesisCompression;
+import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.StreamJsonPayload;
-import com.leo.sdk.payload.StreamPayload;
 
 import javax.inject.Inject;
 import java.io.ByteArrayOutputStream;
@@ -23,7 +23,7 @@ public class JSDKGzipPayload implements KinesisCompression {
     }
 
     @Override
-    public ByteBuffer compress(StreamPayload payload) {
+    public ByteBuffer compress(EntityPayload payload) {
         String json = streamJson.toJsonString(payload);
         return ByteBuffer.wrap(toGzip(json));
     }

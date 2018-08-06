@@ -1,9 +1,9 @@
 package com.leo.sdk.aws.kinesis;
 
-import com.leo.sdk.payload.StreamPayload;
+import com.leo.sdk.payload.EntityPayload;
 
 import java.nio.ByteBuffer;
 
 public interface KinesisCompression {
-    ByteBuffer compress(StreamPayload payload);
+    ByteBuffer compress(EntityPayload payload);
 }

@@ -1,11 +1,11 @@
 package com.leo.sdk.aws;
 
+import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.PlatformStream;
-import com.leo.sdk.WriteQueue;
 import com.leo.sdk.aws.kinesis.KinesisCompression;
+import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.kinesis.KinesisQueue;
 import com.leo.sdk.aws.kinesis.KinesisResults;
-import com.leo.sdk.aws.kinesis.KinesisWrite;
 import com.leo.sdk.aws.payload.JSDKGzipPayload;
 import com.leo.sdk.aws.payload.JacksonNewlinePayload;
 import com.leo.sdk.config.ConnectorConfig;
@@ -20,18 +20,21 @@ import java.util.List;
 public class AWSModule {
 
     @Provides
-    public static KinesisResults provideKinesisResults() {
-        return new KinesisResults();
+    public static PlatformStream provideAwsStream(TransferProxy transferProxy) {
+        return new AWSStream(transferProxy);
+    }
+
+    public static TransferProxy provideTransferProxy(ConnectorConfig config, List<AsyncWorkQueue> asyncQueues) {
+        return new TransferProxy(config, asyncQueues);
+    }
+
+    public static KinesisQueue provideKinesisQueue(KinesisCompression compression, KinesisProducerWriter kinesisWriter) {
+        return new KinesisQueue(compression, kinesisWriter);
     }
 
     @Provides
-    public static KinesisWrite provideKinesisWrite(ConnectorConfig config, KinesisResults resultsProcessor) {
-        return new KinesisWrite(config, resultsProcessor);
-    }
-
-    @Provides
-    public static StreamJsonPayload provideStreamJsonPayload() {
-        return new JacksonNewlinePayload();
+    public static List<AsyncWorkQueue> provideWorkQueues(KinesisQueue kinesisQueue) {
+        return Collections.singletonList(kinesisQueue);
     }
 
     @Provides
@@ -40,22 +43,17 @@ public class AWSModule {
     }
 
     @Provides
-    public static List<WriteQueue> provideWriteQueueList(KinesisCompression compression, KinesisWrite kinesisWriter) {
-        return Collections.singletonList(new KinesisQueue(compression, kinesisWriter));
-    }
-
-//    @Provides
-//    static ConnectorConfig provideConnectorConfig() {
-//        return new FileConfig();
-//    }
-
-    @Provides
-    public static AsyncUpload provideAsyncUpload(ConnectorConfig config, List<WriteQueue> queues) {
-        return new AsyncUpload(config, queues);
+    public static StreamJsonPayload provideStreamJsonPayload() {
+        return new JacksonNewlinePayload();
     }
 
     @Provides
-    public static PlatformStream provideAwsStream(AsyncUpload AsyncUpload) {
-        return new AWSStream(AsyncUpload);
+    public static KinesisProducerWriter provideKinesisWrite(ConnectorConfig config, KinesisResults resultsProcessor) {
+        return new KinesisProducerWriter(config, resultsProcessor);
+    }
+
+    @Provides
+    public static KinesisResults provideKinesisResults() {
+        return new KinesisResults();
     }
 }
