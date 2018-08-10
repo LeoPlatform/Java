@@ -2,8 +2,6 @@ package com.leo.sdk.aws.kinesis;
 
 import com.leo.sdk.*;
 import com.leo.sdk.payload.EntityPayload;
-import com.leo.sdk.payload.SimplePayload;
-import com.leo.sdk.payload.StreamCorrelation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,12 +25,6 @@ public class KinesisQueue implements AsyncWorkQueue {
     public KinesisQueue(KinesisCompression compression, KinesisProducerWriter kinesisWriter) {
         this.compression = compression;
         this.kinesisWriter = kinesisWriter;
-    }
-
-    @Override
-    public void addEntity(SimplePayload entity) {
-        EntityPayload wrapper = new EntityPayload(entity, new StreamCorrelation("", 0L, 0L, 0L), "");
-        addEntity(wrapper);
     }
 
     @Override

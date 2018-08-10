@@ -1,5 +1,8 @@
 package com.leo.sdk.aws.kinesis;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.kinesis.producer.KinesisProducer;
 import com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration;
 import com.amazonaws.services.kinesis.producer.UserRecordResult;
@@ -40,6 +43,7 @@ public class KinesisProducerWriter implements AsyncPayloadWriter {
         this.stream = config.value("Stream.Name");
         this.resultsProcessor = resultsProcessor;
         KinesisProducerConfiguration kCfg = new KinesisProducerConfiguration()
+                .setCredentialsProvider(credentials(config))
                 .setRegion(config.valueOrElse("Region", "us-east-1"))
                 .setRecordMaxBufferedTime(config.longValueOrElse("Stream.MaxBatchAge", 200L))
                 .setCollectionMaxCount(config.longValueOrElse("Stream.MaxBatchRecords", 500L))
@@ -85,6 +89,15 @@ public class KinesisProducerWriter implements AsyncPayloadWriter {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private AWSCredentialsProvider credentials(ConnectorConfig config) {
+        return Optional.of(config.valueOrElse("AwsProfile", ""))
+                .map(String::trim)
+                .filter(profile -> !profile.isEmpty())
+                .map(ProfileCredentialsProvider::new)
+                .map(AWSCredentialsProvider.class::cast)
+                .orElse(DefaultAWSCredentialsProviderChain.getInstance());
     }
 
     private BiConsumer<Entry<String, UserRecordResult>, Throwable> processResult() {

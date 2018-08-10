@@ -3,28 +3,28 @@ package com.leo.sdk.aws;
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.StreamStats;
+import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.SimplePayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 public class AWSStream implements PlatformStream {
     private static final Logger log = LoggerFactory.getLogger(AWSStream.class);
     private final AsyncWorkQueue transferProxy;
+    private final LoadingBot bot;
 
-    @Inject
-    public AWSStream(AsyncWorkQueue transferProxy) {
+    public AWSStream(AsyncWorkQueue transferProxy, LoadingBot bot) {
         this.transferProxy = transferProxy;
+        this.bot = bot;
     }
 
     @Override
     public void transfer(SimplePayload payload) {
-        transferProxy.addEntity(payload);
-        log.debug("Registered {} for transfer", payload.entity().toString());
+        transferProxy.addEntity(new EntityPayload(payload, bot));
     }
 
     @Override
@@ -34,7 +34,7 @@ public class AWSStream implements PlatformStream {
 
     @Override
     public CompletableFuture<StreamStats> end() {
-        log.info("Completed");
+        log.info("Stopping platform stream");
         return CompletableFuture.supplyAsync(transferProxy::end);
     }
 }

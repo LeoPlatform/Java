@@ -1,0 +1,93 @@
+{
+  "op": "update",
+  "fullobj": {
+    "_id": "",
+    "suborder_id": 0,
+    "order_id": 0,
+    "retailer_id": "",
+    "supplier_id": "",
+    "po_number": "",
+    "supplier_order_number": null,
+    "consumer_order_number": null,
+    "cancel_after_date": null,
+    "create_date": "",
+    "ship_late_date": "",
+    "retailer_create_date": "",
+    "provisional_shipments": [],
+    "items": [
+      {
+        "item_id": 1028695022,
+        "line_number": 1,
+        "title": "CAYE NAPPA BUCKLE BOOT",
+        "quantity": 1,
+        "expected_cost": 143.82,
+        "cost": 143.82,
+        "consumer_price": 156,
+        "partner_sku": "401082326017",
+        "sku": "804608133388",
+        "sub_statuses": [],
+        "activity": [
+          {
+            "action": "add",
+            "update_date": "2018-07-25T10:53:58+00:00"
+          }
+        ]
+      },
+      {
+        "item_id": 1028663477,
+        "line_number": 2,
+        "title": "MOTT",
+        "quantity": 2,
+        "expected_cost": 94.5,
+        "cost": 95.5,
+        "consumer_price": 225,
+        "partner_sku": "401075358964",
+        "sku": "401075358964",
+        "sub_statuses": [],
+        "activity": [
+          {
+            "action": "add",
+            "update_date": "2018-07-25T10:53:57+00:00"
+          }
+        ]
+      }
+    ],
+    "channel": null,
+    "requested_ship_carrier": "",
+    "requested_ship_method": "Ground",
+    "requested_shipping_service_level_code": "FECG",
+    "days_to_arrive": 7,
+    "shipping": null,
+    "status": "shipment_pending",
+    "required_ship_date": null,
+    "retailer_account_id": null,
+    "retailer_shipping_account": null,
+    "signature_required_flag": null,
+    "vendor_id": null,
+    "test_flag": 0,
+    "currency_code": null,
+    "shipments": [],
+    "last_actor": {
+      "account_id": null,
+      "account_type": null,
+      "source": "SYSTEM",
+      "system_op": true,
+      "employee_id": null,
+      "user_id": null,
+      "ip": null,
+      "process_id": null,
+      "job_id": null,
+      "update_date": "",
+      "mt": 1515525670.646138,
+      "trigger": "Operation.HandleShippoResponse"
+    },
+    "_dates": {
+      "created": "",
+      "shipment_pending": null,
+      "last_status_update": "",
+      "last_update": "",
+      "ship_late": "",
+      "retailer_create": ""
+    }
+  }
+}

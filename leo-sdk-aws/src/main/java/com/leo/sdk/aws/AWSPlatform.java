@@ -1,7 +1,6 @@
 package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
-import com.leo.sdk.PlatformStream;
 import com.leo.sdk.SDKModule;
 import com.leo.sdk.aws.kinesis.KinesisCompression;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
@@ -14,8 +13,6 @@ import java.util.List;
 
 @Component(modules = {AWSModule.class, SDKModule.class})
 public interface AWSPlatform {
-    PlatformStream platformStream();
-
     TransferProxy transferProxy();
 
     KinesisQueue kinesisQueue();

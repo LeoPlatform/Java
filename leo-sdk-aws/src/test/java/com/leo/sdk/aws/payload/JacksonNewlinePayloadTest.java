@@ -1,9 +1,9 @@
 package com.leo.sdk.aws.payload;
 
 import com.leo.sdk.aws.DaggerAWSPlatform;
+import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.SimplePayload;
-import com.leo.sdk.payload.StreamCorrelation;
 import com.leo.sdk.payload.StreamJsonPayload;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -18,21 +18,10 @@ public class JacksonNewlinePayloadTest {
     private StreamJsonPayload jp = DaggerAWSPlatform.builder().build().streamJsonPayload();
 
     @Test
-    public void testJsonId() {
-        SimplePayload simplePayload = simplePayload(Instant.now());
-        EntityPayload sp = new EntityPayload(simplePayload, streamCorrelation(), "my-event");
-        String id = Json.createReader(new StringReader(jp.toJsonString(sp)))
-                .readObject()
-                .getJsonString("id")
-                .getString();
-        Assert.assertEquals(id, simplePayload.id(), "Invalid JSON id");
-    }
-
-    @Test
     public void testJsonTime() {
         Instant now = Instant.now();
         SimplePayload simplePayload = simplePayload(now);
-        EntityPayload sp = new EntityPayload(simplePayload, streamCorrelation(), "my-event");
+        EntityPayload sp = new EntityPayload(simplePayload, new LoadingBot("my-bot", "my-queue"));
         long timestamp = Json.createReader(new StringReader(jp.toJsonString(sp)))
                 .readObject()
                 .getJsonNumber("timestamp")
@@ -43,7 +32,7 @@ public class JacksonNewlinePayloadTest {
     @Test
     public void testEntity() {
         SimplePayload simplePayload = simplePayload(Instant.now());
-        EntityPayload sp = new EntityPayload(simplePayload, streamCorrelation(), "my-event");
+        EntityPayload sp = new EntityPayload(simplePayload, new LoadingBot("my-bot", "my-queue"));
         int abcVal = Json.createReader(new StringReader(jp.toJsonString(sp)))
                 .readObject()
                 .getJsonObject("payload")
@@ -54,11 +43,6 @@ public class JacksonNewlinePayloadTest {
 
     private SimplePayload simplePayload(Instant time) {
         return new SimplePayload() {
-            @Override
-            public String id() {
-                return "Jack";
-            }
-
             @Override
             public Instant eventTime() {
                 return time;
@@ -71,9 +55,5 @@ public class JacksonNewlinePayloadTest {
                         .build();
             }
         };
-    }
-
-    private StreamCorrelation streamCorrelation() {
-        return new StreamCorrelation("my-src", 1L, 2L, 3L);
     }
 }

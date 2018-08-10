@@ -5,13 +5,11 @@ import com.leo.sdk.StreamStats;
 import com.leo.sdk.TransferStyle;
 import com.leo.sdk.config.ConnectorConfig;
 import com.leo.sdk.payload.EntityPayload;
-import com.leo.sdk.payload.SimplePayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.leo.sdk.TransferStyle.PROXY;
@@ -35,11 +33,6 @@ public class TransferProxy implements AsyncWorkQueue {
                 .filter(q -> q.style() == type)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown uploader " + type));
-    }
-
-    @Override
-    public void addEntity(SimplePayload entity) {
-        transferQueue.addEntity(entity);
     }
 
     @Override
@@ -72,20 +65,5 @@ public class TransferProxy implements AsyncWorkQueue {
                     throw new IllegalArgumentException("Cannot proxy this transfer style: " + transferQueue.style());
                 })
                 .orElseThrow(() -> new IllegalArgumentException("Unknown transfer style: " + transferQueue.style()));
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
-        TransferProxy that = (TransferProxy) o;
-        return style == that.style;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(style);
     }
 }
