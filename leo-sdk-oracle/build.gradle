@@ -1,0 +1,59 @@
+apply plugin: 'maven-publish'
+
+version = '1.0.0-SNAPSHOT'
+
+dependencies {
+    compile(
+            project(':leo-api'),
+            'com.oracle.jdbc:ojdbc8:12.2.0.1',
+            'com.amazonaws:aws-lambda-java-core:1.2.0',
+            'com.amazonaws:aws-lambda-java-events:2.2.2'
+    )
+}
+
+task sourcesJar(type: Jar) {
+    from sourceSets.main.allJava
+}
+
+test {
+    useTestNG {
+        useDefaultListeners = true
+        failFast = true
+        options.suites('src/test/resources/testng.xml')
+    }
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+repositories {
+    maven {
+        url 'https://www.oracle.com/content/secure/maven/content'
+        name 'maven.oracle.com'
+        credentials {
+            username oracle_user
+            password oracle_password
+        }
+    }
+}
+
+publishing {
+    publications {
+        sdkOracle(MavenPublication) {
+            from components.java
+            artifact sourcesJar {
+                classifier 'sources'
+            }
+        }
+    }
+    repositories {
+        maven {
+            def baseUrl = 'https://repo.fullmonty.org/repository/'
+            url baseUrl + (project.version.endsWith('-SNAPSHOT') ? 'maven-snapshots/' : 'maven-releases/')
+            credentials {
+                username nexus_user
+                password nexus_password
+            }
+        }
+    }
+}

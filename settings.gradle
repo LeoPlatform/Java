@@ -1,4 +1,5 @@
 rootProject.name = 'connector-sdk'
 include 'leo-api'
 include 'leo-sdk-aws'
+include 'leo-sdk-oracle'
 enableFeaturePreview 'STABLE_PUBLISHING'

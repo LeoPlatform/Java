@@ -1,29 +1,40 @@
 plugins {
-    id "net.ltgt.apt" version "0.10"
+    id 'net.ltgt.apt' version '0.18'
+    id 'org.jetbrains.gradle.plugin.idea-ext' version '0.4.1'
 }
 
 allprojects {
     apply plugin: 'java'
-    apply plugin: 'idea'
     apply plugin: 'net.ltgt.apt'
+    apply plugin: 'net.ltgt.apt-idea'
+    apply plugin: 'org.jetbrains.gradle.plugin.idea-ext'
 
     dependencies {
         compile 'com.google.dagger:dagger:2.16'
-        apt 'com.google.dagger:dagger-compiler:2.16'
+        annotationProcessor 'com.google.dagger:dagger-compiler:2.16'
+    }
+
+    project.plugins.withType(JavaPlugin) {
+        project.plugins.withId("net.ltgt.apt-idea") {
+            project.afterEvaluate {
+                project.idea.module.apt.addAptDependencies = false
+            }
+        }
     }
 
     group = 'com.leo'
     compileJava {
         sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
         options.encoding = 'UTF-8'
         options.debugOptions.debugLevel = 'source,lines,vars'
     }
     repositories {
         mavenLocal()
+        mavenCentral()
         maven {
             url 'https://repo.fullmonty.org/repository/maven-public/'
         }
-        mavenCentral()
     }
 }
 
@@ -49,12 +60,6 @@ subprojects {
             testLogging {
                 events "passed", "skipped", "failed"
             }
-        }
-    }
-    tasks.withType(FindBugs) {
-        reports {
-            xml.enabled false
-            html.enabled true
         }
     }
 }

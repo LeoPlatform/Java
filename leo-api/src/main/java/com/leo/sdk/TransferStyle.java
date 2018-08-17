@@ -22,7 +22,7 @@ public enum TransferStyle {
         return Stream.of(values())
                 .filter(t -> t.style().equalsIgnoreCase(style))
                 .findAny()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown transfer style: " + style));
+                .orElseThrow(() -> new IllegalArgumentException("Unknown write style: " + style));
     }
 
     @Override

@@ -25,7 +25,7 @@ public class TransferProxy implements AsyncWorkQueue {
         this.transferQueue = workQueueStyle(asyncQueues, type);
 
         String awsType = transferTypeLabel();
-        log.info("AWS {} {} transfer configured", awsType, transferQueue.style().style());
+        log.info("AWS {} {} write configured", awsType, transferQueue.style().style());
     }
 
     private AsyncWorkQueue workQueueStyle(List<AsyncWorkQueue> workQueues, TransferStyle type) {
@@ -62,8 +62,8 @@ public class TransferProxy implements AsyncWorkQueue {
                         case BATCH:
                             return "Firehose";
                     }
-                    throw new IllegalArgumentException("Cannot proxy this transfer style: " + transferQueue.style());
+                    throw new IllegalArgumentException("Cannot proxy this write style: " + transferQueue.style());
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Unknown transfer style: " + transferQueue.style()));
+                .orElseThrow(() -> new IllegalArgumentException("Unknown write style: " + transferQueue.style()));
     }
 }

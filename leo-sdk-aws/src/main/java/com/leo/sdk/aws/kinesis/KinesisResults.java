@@ -6,16 +6,19 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 public class KinesisResults {
     private static final Logger log = LoggerFactory.getLogger(KinesisResults.class);
+
+    private static final int MAX_RESULT_ENTRIES = 10_000;
+    private final Map<String, UserRecordResult> successes = successMap();
+    private final Map<String, Throwable> failures = failureMap();
     private final Instant start = Instant.now();
-    private final Map<String, UserRecordResult> successes = new ConcurrentHashMap<>();
-    private final Map<String, Throwable> failures = new ConcurrentHashMap<>();
+
 
     void addSuccess(String id, UserRecordResult recordResult) {
+        successes.put(id, recordResult);
         logSuccess(id, recordResult);
     }
 
@@ -26,6 +29,7 @@ public class KinesisResults {
     }
 
     void addFailure(String id, Throwable throwable) {
+        failures.put(id, throwable);
         logFailure(id, throwable);
     }
 
@@ -40,7 +44,6 @@ public class KinesisResults {
     }
 
     private void logSuccess(String id, UserRecordResult result) {
-        successes.put(id, result);
         String succ = Optional.ofNullable(result)
                 .map(UserRecordResult::isSuccessful)
                 .filter(s -> s)
@@ -65,8 +68,25 @@ public class KinesisResults {
     }
 
     private void logFailure(String id, Throwable throwable) {
-        failures.put(id, throwable);
         log.error("Could not upload record {} to Kinesis", id, throwable);
     }
 
+
+    private Map<String, UserRecordResult> successMap() {
+        return Collections.synchronizedMap(new LinkedHashMap<String, UserRecordResult>() {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, UserRecordResult> eldest) {
+                return size() > MAX_RESULT_ENTRIES;
+            }
+        });
+    }
+
+    private Map<String, Throwable> failureMap() {
+        return Collections.synchronizedMap(new LinkedHashMap<String, Throwable>() {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, Throwable> eldest) {
+                return size() > MAX_RESULT_ENTRIES;
+            }
+        });
+    }
 }

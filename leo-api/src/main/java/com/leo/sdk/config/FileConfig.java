@@ -72,9 +72,4 @@ public class FileConfig implements ConnectorConfig {
         return Optional.ofNullable(System.getenv(PROFILE_ENV))
                 .orElse(System.getProperty(PROFILE_ENV));
     }
-
-    private String resource(String profile, String key) {
-//        return conf.getString(profile + "." + key);
-        return "";
-    }
 }

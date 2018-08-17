@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.AbstractMap.SimpleEntry;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -85,7 +85,7 @@ public class KinesisProducerWriter implements AsyncPayloadWriter {
     private Entry<String, UserRecordResult> addRecord(PayloadIdentifier payload) {
         try {
             UserRecordResult result = kinesis.addUserRecord(stream, "0", payload.getPayload()).get();
-            return new SimpleEntry<>(payload.getId(), result);
+            return new SimpleImmutableEntry<>(payload.getId(), result);
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }

@@ -2,7 +2,7 @@ package com.leo.sdk.aws.payload;
 
 import com.leo.sdk.aws.DaggerAWSPlatform;
 import com.leo.sdk.aws.kinesis.KinesisCompression;
-import com.leo.sdk.bus.LoadingBot;
+import com.leo.sdk.bus.SimpleLoadingBot;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.SimplePayload;
 import org.testng.annotations.Test;
@@ -71,7 +71,7 @@ public class JSDKGzipPayloadTest {
     }
 
     private EntityPayload entityPayload(Instant time, JsonObject simpleJson) {
-        return new EntityPayload(simplePayload(time, simpleJson), new LoadingBot("my-bot", "my-queue"));
+        return new EntityPayload(simplePayload(time, simpleJson), new SimpleLoadingBot("my-bot", "my-queue"));
     }
 
     private SimplePayload simplePayload(Instant time, JsonObject simpleJson) {

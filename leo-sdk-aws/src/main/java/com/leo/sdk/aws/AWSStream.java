@@ -23,7 +23,7 @@ public class AWSStream implements PlatformStream {
     }
 
     @Override
-    public void transfer(SimplePayload payload) {
+    public void write(SimplePayload payload) {
         transferProxy.addEntity(new EntityPayload(payload, bot));
     }
 

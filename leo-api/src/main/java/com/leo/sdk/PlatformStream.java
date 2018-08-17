@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 public interface PlatformStream {
-    void transfer(SimplePayload payload);
+    void write(SimplePayload payload);
 
     Stream<EntityPayload> process();
 

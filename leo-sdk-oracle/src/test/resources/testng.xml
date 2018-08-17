@@ -1,0 +1,10 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+<suite name="LeoOracle" verbose="10">
+    <test name="All">
+        <packages>
+            <package name=".*"/>
+        </packages>
+        <classes>
+        </classes>
+    </test>
+</suite>
