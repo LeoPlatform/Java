@@ -4,7 +4,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Optional;
 
-public class SimpleChangeListener implements ChangeListener {
+public final class SimpleChangeListener implements ChangeListener {
     private static final int DEFAULT_PORT = 47632;
 
     private final String host;

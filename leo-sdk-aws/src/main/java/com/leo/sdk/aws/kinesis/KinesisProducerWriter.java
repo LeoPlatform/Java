@@ -30,7 +30,7 @@ import static com.amazonaws.services.kinesis.producer.KinesisProducerConfigurati
 import static com.leo.sdk.TransferStyle.STREAM;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class KinesisProducerWriter implements AsyncPayloadWriter {
+public final class KinesisProducerWriter implements AsyncPayloadWriter {
     private static final Logger log = LoggerFactory.getLogger(KinesisProducerWriter.class);
     private final TransferStyle style = STREAM;
     private final KinesisResults resultsProcessor;
@@ -64,13 +64,16 @@ public class KinesisProducerWriter implements AsyncPayloadWriter {
 
     @Override
     public StreamStats end() {
+        log.info("Stopping Kinesis writer");
         asyncComplete.shutdown();
         try {
+            log.info("Flushing Kinesis pipeline");
             kinesis.flushSync();
             if (!asyncComplete.awaitTermination(4L, MINUTES)) {
                 asyncComplete.shutdownNow();
             }
             kinesis.destroy();
+            log.info("Stopped Kinesis writer");
         } catch (InterruptedException e) {
             log.warn("Could not shutdown async writer pool");
         }

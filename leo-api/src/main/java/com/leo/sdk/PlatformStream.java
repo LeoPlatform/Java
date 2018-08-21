@@ -7,9 +7,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 public interface PlatformStream {
-    void write(SimplePayload payload);
+    void load(SimplePayload payload);
 
-    Stream<EntityPayload> process();
+    SimplePayload enhance(EntityPayload payload);
+
+    Stream<EntityPayload> offload();
 
     CompletableFuture<StreamStats> end();
 }

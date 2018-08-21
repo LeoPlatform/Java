@@ -1,6 +1,6 @@
 package com.leo.sdk.bus;
 
-public class ChangeLoadingBot implements LoadingBot {
+public final class ChangeLoadingBot implements LoadingBot {
 
     private static final String NAME = "SchemaChangeDetection";
     private static final StreamQueue CHANGES_QUEUE = () -> "SchemaChanges";
@@ -13,5 +13,10 @@ public class ChangeLoadingBot implements LoadingBot {
     @Override
     public StreamQueue destination() {
         return CHANGES_QUEUE;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("ChangeLoadingBot{name='%s', destination='%s'}", NAME, CHANGES_QUEUE);
     }
 }

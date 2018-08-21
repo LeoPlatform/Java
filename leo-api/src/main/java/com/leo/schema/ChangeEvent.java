@@ -3,7 +3,7 @@ package com.leo.schema;
 import java.util.List;
 import java.util.Objects;
 
-public class ChangeEvent {
+public final class ChangeEvent {
     private final Source source;
     private final Op op;
     private final String name;

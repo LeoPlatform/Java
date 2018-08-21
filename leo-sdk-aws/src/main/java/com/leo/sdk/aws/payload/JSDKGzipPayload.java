@@ -13,7 +13,7 @@ import java.util.zip.GZIPOutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class JSDKGzipPayload implements KinesisCompression {
+public final class JSDKGzipPayload implements KinesisCompression {
 
     private final StreamJsonPayload streamJson;
 

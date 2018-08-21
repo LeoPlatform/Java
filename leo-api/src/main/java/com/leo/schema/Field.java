@@ -2,7 +2,7 @@ package com.leo.schema;
 
 import java.util.Objects;
 
-public class Field {
+public final class Field {
     private final String field;
     private final FieldType type;
 

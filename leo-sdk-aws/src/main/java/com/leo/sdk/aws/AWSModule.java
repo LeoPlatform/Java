@@ -16,7 +16,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Module
-class AWSModule {
+final class AWSModule {
 
     @Provides
     static TransferProxy provideTransferProxy(ConnectorConfig config, List<AsyncWorkQueue> asyncQueues) {

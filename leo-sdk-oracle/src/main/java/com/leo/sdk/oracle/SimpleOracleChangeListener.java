@@ -5,7 +5,7 @@ import com.leo.schema.SimpleChangeListener;
 
 import java.util.Properties;
 
-public class SimpleOracleChangeListener implements OracleChangeListener {
+public final class SimpleOracleChangeListener implements OracleChangeListener {
 
     private final ChangeListener changeListener;
     private final Properties props;

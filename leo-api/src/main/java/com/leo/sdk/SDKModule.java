@@ -6,7 +6,7 @@ import dagger.Module;
 import dagger.Provides;
 
 @Module
-public class SDKModule {
+public final class SDKModule {
 
     @Provides
     public static ConnectorConfig provideConnectorConfig() {

@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class SimpleLoadingBot implements LoadingBot {
+public final class SimpleLoadingBot implements LoadingBot {
     private final String name;
     private final List<String> tags;
     private final String description;

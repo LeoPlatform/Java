@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Stream;
 
-public class KinesisResults {
+public final class KinesisResults {
     private static final Logger log = LoggerFactory.getLogger(KinesisResults.class);
 
     private static final int MAX_RESULT_ENTRIES = 10_000;

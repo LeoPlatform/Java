@@ -14,7 +14,7 @@ import java.util.Optional;
 
 import static com.leo.sdk.TransferStyle.PROXY;
 
-public class TransferProxy implements AsyncWorkQueue {
+public final class TransferProxy implements AsyncWorkQueue {
     private static final Logger log = LoggerFactory.getLogger(TransferProxy.class);
     private final TransferStyle style = PROXY;
     private final AsyncWorkQueue transferQueue;

@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class SimpleQueue implements StreamQueue {
+public final class SimpleQueue implements StreamQueue {
     private final String name;
     private final List<String> tags;
 

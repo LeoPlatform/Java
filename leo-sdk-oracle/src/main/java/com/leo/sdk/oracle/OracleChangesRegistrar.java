@@ -26,10 +26,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static oracle.jdbc.OracleConnection.NTF_LOCAL_HOST;
 import static oracle.jdbc.OracleConnection.NTF_LOCAL_TCP_PORT;
 
-public class OracleChangesRegistrar {
+public final class OracleChangesRegistrar {
     private static final Logger log = LoggerFactory.getLogger(OracleChangesRegistrar.class);
 
-    private final OracleChangesSource source;
+    private final OracleChangeSource source;
     private final OracleChangeListener listener;
 
     private final Lock lock = new ReentrantLock();
@@ -38,7 +38,7 @@ public class OracleChangesRegistrar {
     private Instant start = null;
     private Instant end = null;
 
-    public OracleChangesRegistrar(OracleChangesSource source, OracleChangeListener listener) {
+    public OracleChangesRegistrar(OracleChangeSource source, OracleChangeListener listener) {
         this.source = source;
         this.listener = listener;
     }
@@ -65,6 +65,7 @@ public class OracleChangesRegistrar {
         lock.lock();
         try {
             listening = false;
+            end = Instant.now();
             running.signalAll();
         } finally {
             lock.unlock();
@@ -91,6 +92,8 @@ public class OracleChangesRegistrar {
             } while (listening);
         } catch (InterruptedException e) {
             log.info("Change listener shutting down");
+            listening = false;
+            end = Instant.now();
         } finally {
             lock.unlock();
         }
@@ -100,7 +103,7 @@ public class OracleChangesRegistrar {
         try {
             source.connection().pingDatabase();
         } catch (SQLException e) {
-            log.warn("Could not ping database", e);
+            log.warn("Could not ping database: ", e.getMessage());
         }
     }
 
@@ -134,7 +137,6 @@ public class OracleChangesRegistrar {
             } catch (SQLException e) {
                 log.warn("Unable to close Oracle connection", e);
             }
-            end = Instant.now();
         } finally {
             lock.unlock();
         }

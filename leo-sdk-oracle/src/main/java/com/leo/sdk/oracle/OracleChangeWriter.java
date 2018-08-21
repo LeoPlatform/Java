@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 
 import static oracle.jdbc.dcn.TableChangeDescription.TableOperation;
 
-public class OracleChangeWriter implements DatabaseChangeListener {
+public final class OracleChangeWriter implements DatabaseChangeListener {
     private static final Map<TableOperation, Op> supportedOps = supportedOps();
     private final PlatformStream stream;
 
@@ -32,7 +32,7 @@ public class OracleChangeWriter implements DatabaseChangeListener {
                 .flatMap(this::toEvents)
                 .map(this::toJson)
                 .map(this::toPayload)
-                .forEach(stream::write);
+                .forEach(stream::load);
     }
 
     public CompletableFuture<StreamStats> end() {
@@ -44,7 +44,7 @@ public class OracleChangeWriter implements DatabaseChangeListener {
     }
 
     private JsonObject toJson(ChangeEvent changeEvent) {
-        JsonArrayBuilder fieldz = changeEvent.getFields().stream()
+        JsonArrayBuilder fields = changeEvent.getFields().stream()
                 .collect(Json::createArrayBuilder,
                         (b, f) -> b.add(Json.createObjectBuilder()
                                 .add("field", "bla")
@@ -54,7 +54,7 @@ public class OracleChangeWriter implements DatabaseChangeListener {
                 .add("source", changeEvent.getSource().name())
                 .add("op", changeEvent.getOp().name())
                 .add("name", changeEvent.getName())
-                .add("fields", fieldz)
+                .add("fields", fields)
                 .build();
     }
 

@@ -6,13 +6,14 @@ import com.leo.sdk.bus.LoadingBot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LeoAWS {
+public final class LeoAWS {
     private static final Logger log = LoggerFactory.getLogger(LeoAWS.class);
 
-    public static PlatformStream load(LoadingBot bot) {
+    public static PlatformStream of(LoadingBot bot) {
         AsyncWorkQueue transferProxy = DaggerAWSPlatform.builder()
                 .build()
                 .transferProxy();
+        log.info("Created proxy loading stream to {}", bot);
         return new AWSStream(transferProxy, bot);
     }
 }

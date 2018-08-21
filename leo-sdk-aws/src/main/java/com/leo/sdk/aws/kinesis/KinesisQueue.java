@@ -13,7 +13,7 @@ import java.util.concurrent.Executors;
 import static com.leo.sdk.TransferStyle.STREAM;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class KinesisQueue implements AsyncWorkQueue {
+public final class KinesisQueue implements AsyncWorkQueue {
 
     private static final Logger log = LoggerFactory.getLogger(KinesisQueue.class);
     private final TransferStyle style = STREAM;

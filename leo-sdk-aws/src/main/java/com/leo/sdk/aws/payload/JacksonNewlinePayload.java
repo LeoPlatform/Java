@@ -9,7 +9,7 @@ import java.io.IOException;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS;
 
-public class JacksonNewlinePayload implements StreamJsonPayload {
+public final class JacksonNewlinePayload implements StreamJsonPayload {
     private static final String NEWLINE = "\n";
 
     private final ObjectMapper mapper = buildMapper();

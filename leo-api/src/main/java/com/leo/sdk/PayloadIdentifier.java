@@ -2,7 +2,7 @@ package com.leo.sdk;
 
 import java.nio.ByteBuffer;
 
-public class PayloadIdentifier {
+public final class PayloadIdentifier {
     private final String id;
     private final ByteBuffer payload;
 
