@@ -86,7 +86,7 @@ public final class OracleChangesRegistrar {
         lock.lock();
         try {
             do {
-                if (running.await(30L, SECONDS)) {
+                if (!running.await(30L, SECONDS)) {
                     ping();
                 }
             } while (listening);
