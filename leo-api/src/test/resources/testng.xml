@@ -7,6 +7,7 @@
         <classes>
             <class name="com.leo.sdk.config.FileConfigTest"/>
             <class name="com.leo.sdk.payload.EntityPayloadTest"/>
+            <class name="com.leo.schema.SimpleChangeListenerTest"/>
         </classes>
     </test>
 </suite>

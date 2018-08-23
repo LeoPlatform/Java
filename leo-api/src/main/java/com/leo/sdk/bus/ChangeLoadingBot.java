@@ -3,7 +3,7 @@ package com.leo.sdk.bus;
 public final class ChangeLoadingBot implements LoadingBot {
 
     private static final String NAME = "SchemaChangeDetection";
-    private static final StreamQueue CHANGES_QUEUE = () -> "SchemaChanges";
+    private static final StreamQueue CHANGES_QUEUE = new SimpleQueue("SchemaChanges");
 
     @Override
     public String name() {

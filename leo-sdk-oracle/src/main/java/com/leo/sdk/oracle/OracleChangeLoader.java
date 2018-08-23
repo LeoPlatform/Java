@@ -1,114 +1,74 @@
 package com.leo.sdk.oracle;
 
-import com.leo.sdk.PlatformStream;
-import com.leo.sdk.StreamStats;
+import oracle.jdbc.dcn.DatabaseChangeRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class OracleChangeLoader {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeLoader.class);
 
-    private final OracleChangeWriter changeWriter;
-    private final OracleChangesRegistrar registrar;
-    private final ExecutorService executorService;
-
+    private final OracleChangeRegistrar registrar;
+    private DatabaseChangeRegistration dcr = null;
     private final AtomicBoolean loading = new AtomicBoolean(false);
+    private Instant start = null;
 
-    public OracleChangeLoader(OracleChangeSource source, PlatformStream destination) {
-        this(source, new SimpleOracleChangeListener(), destination);
+    @Inject
+    public OracleChangeLoader(OracleChangeRegistrar registrar) {
+        this.registrar = registrar;
     }
 
-    public OracleChangeLoader(OracleChangeSource source, OracleChangeListener listener, PlatformStream destination) {
-        this.changeWriter = new OracleChangeWriter(destination);
-        this.registrar = new OracleChangesRegistrar(source, listener);
-        this.executorService = Executors.newSingleThreadExecutor();
-        executorService.execute(registrar.listen(changeWriter, executorService));
-        loading.set(true);
+    public void register(OracleChangeDestination destination) {
+        register(destination, Runnable::run);
     }
 
-    public OracleChangeLoader(OracleChangeSource source, PlatformStream destination, Executor executor) {
-        this(source, new SimpleOracleChangeListener(), destination, executor);
-    }
-
-    public OracleChangeLoader(OracleChangeSource source, OracleChangeListener listener, PlatformStream destination, Executor executor) {
-        this.changeWriter = new OracleChangeWriter(destination);
-        this.registrar = new OracleChangesRegistrar(source, listener);
-        this.executorService = null;
-        Optional.ofNullable(executor)
-                .orElseThrow(() -> new IllegalArgumentException("Missing or invalid executor"))
-                .execute(registrar.listen(changeWriter, executor));
-        loading.set(true);
+    public void register(OracleChangeDestination destination, Executor executor) {
+        if (!loading.getAndSet(true)) {
+            start = Instant.now();
+            this.dcr = registrar.create(destination, validate(executor));
+            loading.set(false);
+        }
     }
 
     public CompletableFuture<WatchResults> end() {
-        if (loading.getAndSet(false)) {
-            return CompletableFuture.supplyAsync(this::stopRegistrar);
-        } else {
-            return noResults();
-        }
+        return end(Runnable::run);
     }
 
     public CompletableFuture<WatchResults> end(Executor executor) {
         if (loading.getAndSet(false)) {
-            return CompletableFuture.supplyAsync(this::stopRegistrar, executor);
+            return CompletableFuture
+                    .supplyAsync(this::deregister, validate(executor));
         } else {
             return noResults();
         }
     }
 
-    private WatchResults stopRegistrar() {
+    private Executor validate(Executor executor) {
+        return Optional.ofNullable(executor).orElse(Runnable::run);
+    }
+
+    private WatchResults deregister() {
         log.info("Stopping Oracle change loader");
-        WatchResults results = registrar.end();
-        Optional.ofNullable(executorService)
-                .ifPresent(this::shutdownExecutorService);
-        return stopChangeWriter(results);
-    }
-
-    private WatchResults stopChangeWriter(WatchResults results) {
-        changeWriter.end()
-                .whenComplete((streamStats, throwable) -> logStats(streamStats))
-                .join();
-        log.info("Oracle change loader stopped");
-        return results;
-    }
-
-    private void shutdownExecutorService(ExecutorService s) {
-
-        s.shutdown();
-        try {
-            if (!s.awaitTermination(30L, SECONDS)) {
-                s.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            log.warn("Could not shutdown listener service");
-        }
+        return Optional.ofNullable(dcr)
+                .map(registrar::remove)
+                .map(t -> new WatchResults(start, Instant.now(), t))
+                .orElse(emptyResults());
     }
 
     private CompletableFuture<WatchResults> noResults() {
-        Instant now = Instant.now();
-        WatchResults empty = new WatchResults(now, now, Collections.emptyList());
+        WatchResults empty = emptyResults();
         return CompletableFuture.completedFuture(empty);
     }
 
-    private void logStats(StreamStats stats) {
-        long successCount = stats.successIds().count();
-        if (successCount > 0) {
-            log.info("{} records successfully processed", successCount);
-        }
-        long failCount = stats.failedIds().count();
-        if (failCount > 0) {
-            log.warn("{} records failed to load", successCount);
-        }
+    private WatchResults emptyResults() {
+        Instant now = Instant.now();
+        return new WatchResults(now, now, Collections.emptyList());
     }
 }

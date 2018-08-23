@@ -3,10 +3,7 @@ package com.leo.sdk.oracle;
 import oracle.jdbc.OracleConnection;
 
 import java.sql.SQLException;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.*;
 
 import static java.util.stream.Collectors.toList;
 
@@ -15,16 +12,17 @@ public final class SimpleOracleChangeSource implements OracleChangeSource {
     private final OracleConnection conn;
     private final List<String> tables;
 
-    public SimpleOracleChangeSource(OracleConnection conn, Stream<String> tables) {
+    public SimpleOracleChangeSource(OracleConnection conn, Collection<String> tables) {
         this.conn = Optional.ofNullable(conn)
                 .filter(this::pingable)
                 .orElseThrow(() -> new IllegalStateException("Missing or invalid connection"));
         this.tables = validate(tables);
     }
 
-    private List<String> validate(Stream<String> tables) {
+    private List<String> validate(Collection<String> tables) {
         List<String> tbls = Optional.ofNullable(tables)
-                .orElse(Stream.empty())
+                .orElse(Collections.emptyList())
+                .stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(t -> !t.isEmpty())

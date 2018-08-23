@@ -7,26 +7,33 @@ import com.leo.sdk.payload.SimplePayload;
 import oracle.jdbc.dcn.DatabaseChangeEvent;
 import oracle.jdbc.dcn.DatabaseChangeListener;
 import oracle.jdbc.dcn.TableChangeDescription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.json.Json;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
+import javax.inject.Inject;
+import javax.json.*;
+import java.io.StringWriter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
+import static javax.json.stream.JsonGenerator.PRETTY_PRINTING;
 import static oracle.jdbc.dcn.TableChangeDescription.TableOperation;
 
 public final class OracleChangeWriter implements DatabaseChangeListener {
+    private static final Logger log = LoggerFactory.getLogger(OracleChangeWriter.class);
+
     private static final Map<TableOperation, Op> supportedOps = supportedOps();
     private final PlatformStream stream;
 
+    @Inject
     public OracleChangeWriter(PlatformStream stream) {
         this.stream = stream;
     }
 
     @Override
     public void onDatabaseChangeNotification(DatabaseChangeEvent changeEvent) {
+        log.info("Received database notification {}", changeEvent);
         validateChangeEvents(changeEvent)
                 .parallelStream()
                 .flatMap(this::toEvents)
@@ -40,7 +47,17 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
     }
 
     private SimplePayload toPayload(JsonObject jsonObject) {
-        return () -> jsonObject;
+        return () -> {
+            Map<String, Object> props = Collections.singletonMap(PRETTY_PRINTING, true);
+            JsonWriterFactory writerFactory = Json.createWriterFactory(props);
+            StringWriter sw = new StringWriter();
+            JsonWriter jsonWriter = writerFactory.createWriter(sw);
+
+            jsonWriter.writeObject(jsonObject);
+            jsonWriter.close();
+            log.info("JSON payload", sw.toString());
+            return jsonObject;
+        };
     }
 
     private JsonObject toJson(ChangeEvent changeEvent) {

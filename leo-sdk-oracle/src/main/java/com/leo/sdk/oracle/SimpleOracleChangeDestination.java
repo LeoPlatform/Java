@@ -1,24 +1,24 @@
 package com.leo.sdk.oracle;
 
-import com.leo.schema.ChangeListener;
+import com.leo.schema.ChangeDestination;
 import com.leo.schema.SimpleChangeListener;
 
 import java.util.Properties;
 
-public final class SimpleOracleChangeListener implements OracleChangeListener {
+public final class SimpleOracleChangeDestination implements OracleChangeDestination {
 
-    private final ChangeListener changeListener;
+    private final ChangeDestination changeListener;
     private final Properties props;
 
-    public SimpleOracleChangeListener() {
+    public SimpleOracleChangeDestination() {
         this(new SimpleChangeListener());
     }
 
-    public SimpleOracleChangeListener(ChangeListener changeListener) {
+    public SimpleOracleChangeDestination(ChangeDestination changeListener) {
         this(changeListener, new Properties());
     }
 
-    public SimpleOracleChangeListener(ChangeListener changeListener, Properties props) {
+    public SimpleOracleChangeDestination(ChangeDestination changeListener, Properties props) {
         this.changeListener = changeListener;
         this.props = props;
     }
