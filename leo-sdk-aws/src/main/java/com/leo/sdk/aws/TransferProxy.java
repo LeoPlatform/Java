@@ -3,67 +3,49 @@ package com.leo.sdk.aws;
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.TransferStyle;
-import com.leo.sdk.config.ConnectorConfig;
+import com.leo.sdk.aws.payload.ThresholdMonitor;
 import com.leo.sdk.payload.EntityPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import java.util.List;
-import java.util.Optional;
+import javax.inject.Singleton;
 
 import static com.leo.sdk.TransferStyle.PROXY;
 
+@Singleton
 public final class TransferProxy implements AsyncWorkQueue {
     private static final Logger log = LoggerFactory.getLogger(TransferProxy.class);
-    private final TransferStyle style = PROXY;
-    private final AsyncWorkQueue transferQueue;
+
+    private final WorkQueues workQueues;
+    private final ThresholdMonitor thresholdMonitor;
 
     @Inject
-    public TransferProxy(ConnectorConfig config, List<AsyncWorkQueue> asyncQueues) {
-        TransferStyle type = TransferStyle.fromType(config.value("Writer"));
-        this.transferQueue = workQueueStyle(asyncQueues, type);
-
-        String awsType = transferTypeLabel();
-        log.info("AWS {} {} write configured", awsType, transferQueue.style().style());
-    }
-
-    private AsyncWorkQueue workQueueStyle(List<AsyncWorkQueue> workQueues, TransferStyle type) {
-        return workQueues.stream()
-                .filter(q -> q.style() == type)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown uploader " + type));
+    public TransferProxy(WorkQueues workQueues, ThresholdMonitor thresholdMonitor) {
+        this.workQueues = workQueues;
+        this.thresholdMonitor = thresholdMonitor;
     }
 
     @Override
     public void addEntity(EntityPayload entity) {
-        transferQueue.addEntity(entity);
+        if (thresholdMonitor.isFailover()) {
+            workQueues.failoverQueue().addEntity(entity);
+        } else {
+            workQueues.workQueue().addEntity(entity);
+        }
     }
 
     @Override
     public StreamStats end() {
-        return transferQueue.end();
+        thresholdMonitor.end();
+        StreamStats ss = workQueues.workQueue().end();
+        StreamStats ssFailover = workQueues.failoverQueue().end();
+        //TODO: combine stats
+        return ss;
     }
 
     @Override
     public TransferStyle style() {
-        return style;
-    }
-
-    private String transferTypeLabel() {
-        return Optional.of(transferQueue)
-                .map(AsyncWorkQueue::style)
-                .map(s -> {
-                    switch (s) {
-                        case STREAM:
-                            return "Kinesis";
-                        case STORAGE:
-                            return "S3";
-                        case BATCH:
-                            return "Firehose";
-                    }
-                    throw new IllegalArgumentException("Cannot proxy this write style: " + transferQueue.style());
-                })
-                .orElseThrow(() -> new IllegalArgumentException("Unknown write style: " + transferQueue.style()));
+        return PROXY;
     }
 }

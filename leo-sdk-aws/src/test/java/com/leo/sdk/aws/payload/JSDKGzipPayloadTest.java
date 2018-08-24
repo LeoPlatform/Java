@@ -2,9 +2,11 @@ package com.leo.sdk.aws.payload;
 
 import com.leo.sdk.aws.DaggerAWSPlatform;
 import com.leo.sdk.aws.kinesis.KinesisCompression;
+import com.leo.sdk.bus.Bots;
 import com.leo.sdk.bus.SimpleLoadingBot;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.SimplePayload;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import javax.json.Json;
@@ -27,7 +29,16 @@ import static org.testng.Assert.assertTrue;
 
 public class JSDKGzipPayloadTest {
 
-    private KinesisCompression compressor = DaggerAWSPlatform.builder().build().kinesisCompression();
+    private KinesisCompression compressor;
+
+    @BeforeClass
+    void setUp() {
+        System.setProperty("JAVA_ENV", "DevBus");
+        compressor = DaggerAWSPlatform.builder()
+                .loadingBot(Bots.ofLoading("my-bot", "my-queue"))
+                .build()
+                .kinesisCompression();
+    }
 
     @Test
     public void testCompressLen() {

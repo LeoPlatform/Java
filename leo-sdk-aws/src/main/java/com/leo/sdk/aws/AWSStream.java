@@ -9,6 +9,8 @@ import com.leo.sdk.payload.SimplePayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
+import javax.inject.Named;
 import javax.json.Json;
 import java.time.Duration;
 import java.time.Instant;
@@ -22,7 +24,8 @@ public final class AWSStream implements PlatformStream {
     private final LoadingBot bot;
     private final AtomicBoolean streaming;
 
-    public AWSStream(AsyncWorkQueue transferProxy, LoadingBot bot) {
+    @Inject
+    public AWSStream(@Named("Proxy") AsyncWorkQueue transferProxy, LoadingBot bot) {
         this.transferProxy = transferProxy;
         this.bot = bot;
         this.streaming = new AtomicBoolean(true);

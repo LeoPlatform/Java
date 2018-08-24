@@ -1,41 +1,71 @@
 package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
+import com.leo.sdk.PlatformStream;
 import com.leo.sdk.aws.kinesis.KinesisCompression;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.kinesis.KinesisQueue;
 import com.leo.sdk.aws.kinesis.KinesisResults;
+import com.leo.sdk.aws.payload.InternalThresholdMonitor;
 import com.leo.sdk.aws.payload.JSDKGzipPayload;
 import com.leo.sdk.aws.payload.JacksonNewlinePayload;
+import com.leo.sdk.aws.payload.ThresholdMonitor;
+import com.leo.sdk.aws.s3.S3Queue;
+import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.config.ConnectorConfig;
 import com.leo.sdk.payload.StreamJsonPayload;
 import dagger.Module;
 import dagger.Provides;
 
-import java.util.Collections;
+import javax.inject.Named;
 import java.util.List;
+import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.toList;
 
 @Module
 final class AWSModule {
-
     @Provides
-    static TransferProxy provideTransferProxy(ConnectorConfig config, List<AsyncWorkQueue> asyncQueues) {
-        return new TransferProxy(config, asyncQueues);
+    static PlatformStream providePlatformStream(@Named("Proxy") AsyncWorkQueue transferProxy, LoadingBot bot) {
+        return new AWSStream(transferProxy, bot);
     }
 
     @Provides
-    static KinesisQueue provideKinesisQueue(KinesisCompression compression, KinesisProducerWriter kinesisWriter) {
+    static WorkQueues provideWorkQueues(ConnectorConfig config, List<AsyncWorkQueue> asyncQueues) {
+        return new WorkQueues(config, asyncQueues);
+    }
+
+    @Provides
+    @Named("Proxy")
+    static AsyncWorkQueue provideTransferProxy(WorkQueues workQueues, ThresholdMonitor thresholdMonitor) {
+        return new TransferProxy(workQueues, thresholdMonitor);
+    }
+
+    @Provides
+    static ThresholdMonitor provideThresholdMonitor(ConnectorConfig config) {
+        return new InternalThresholdMonitor(config);
+    }
+
+    @Provides
+    @Named("Stream")
+    static AsyncWorkQueue provideKinesisQueue(KinesisCompression compression, KinesisProducerWriter kinesisWriter) {
         return new KinesisQueue(compression, kinesisWriter);
     }
 
     @Provides
-    static List<AsyncWorkQueue> provideWorkQueues(KinesisQueue kinesisQueue) {
-        return Collections.singletonList(kinesisQueue);
+    @Named("Storage")
+    static AsyncWorkQueue provideS3Queue(KinesisCompression compression, KinesisProducerWriter kinesisWriter) {
+        return new S3Queue(compression, kinesisWriter);
     }
 
     @Provides
-    static KinesisCompression provideKinesisCompression(StreamJsonPayload streamJson) {
-        return new JSDKGzipPayload(streamJson);
+    static List<AsyncWorkQueue> provideAsyncWorkQueues(@Named("Stream") AsyncWorkQueue kinesisQueue, @Named("Storage") AsyncWorkQueue s3Queue) {
+        return Stream.of(kinesisQueue, s3Queue).collect(toList());
+    }
+
+    @Provides
+    static KinesisCompression provideKinesisCompression(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
+        return new JSDKGzipPayload(streamJson, thresholdMonitor);
     }
 
     @Provides

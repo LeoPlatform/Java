@@ -1,6 +1,5 @@
 package com.leo.sdk;
 
-import com.leo.sdk.aws.AWSStream;
 import com.leo.sdk.aws.DaggerAWSPlatform;
 import com.leo.sdk.bus.Bots;
 import com.leo.sdk.bus.LoadingBot;
@@ -11,11 +10,12 @@ public final class LeoAWS {
     private static final Logger log = LoggerFactory.getLogger(LeoAWS.class);
 
     public static PlatformStream of(LoadingBot bot) {
-        AsyncWorkQueue transferProxy = DaggerAWSPlatform.builder()
+        PlatformStream stream = DaggerAWSPlatform.builder()
+                .loadingBot(bot)
                 .build()
-                .transferProxy();
+                .platformStream();
         log.info("Created proxy loading stream to {}", bot);
-        return new AWSStream(transferProxy, bot);
+        return stream;
     }
 
     public static PlatformStream ofChanges() {
