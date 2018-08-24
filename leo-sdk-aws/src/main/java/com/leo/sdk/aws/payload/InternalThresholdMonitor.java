@@ -58,13 +58,17 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
         }
     }
 
-    private boolean failoverThreshold() {
+    private boolean wasOverThreshold() {
         return currentLevel.getAndSet(0) > maxBytesPerSecond;
+    }
+
+    private boolean isOverThreshold() {
+        return currentLevel.get() > maxBytesPerSecond;
     }
 
     private Runnable thresholdCheck() {
         return () -> {
-            if (failoverThreshold()) {
+            if (wasOverThreshold()) {
                 boolean wasFailover = failover.getAndSet(true);
                 if (!wasFailover) {
                     log.warn("Bytes per second exceeded {}: failover enabled", maxBytesPerSecond);
@@ -85,11 +89,11 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
 
     private Runnable clearThresholdCheck() {
         return () -> {
-            if (!failoverThreshold()) {
+            if (failover.get() && isOverThreshold()) {
+                log.warn("Failover remains in place");
+            } else if (failover.get()) {
                 failover.set(false);
                 log.info("Cleared failover");
-            } else {
-                log.warn("Failover remains in place");
             }
         };
     }
