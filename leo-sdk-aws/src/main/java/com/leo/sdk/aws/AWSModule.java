@@ -2,15 +2,14 @@ package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.PlatformStream;
-import com.leo.sdk.aws.kinesis.KinesisCompression;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.kinesis.KinesisQueue;
 import com.leo.sdk.aws.kinesis.KinesisResults;
-import com.leo.sdk.aws.payload.InternalThresholdMonitor;
-import com.leo.sdk.aws.payload.JSDKGzipPayload;
-import com.leo.sdk.aws.payload.JacksonNewlinePayload;
-import com.leo.sdk.aws.payload.ThresholdMonitor;
+import com.leo.sdk.aws.payload.*;
 import com.leo.sdk.aws.s3.S3Queue;
+import com.leo.sdk.aws.s3.S3Results;
+import com.leo.sdk.aws.s3.S3TransferManager;
+import com.leo.sdk.aws.s3.S3Writer;
 import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.config.ConnectorConfig;
 import com.leo.sdk.payload.StreamJsonPayload;
@@ -48,14 +47,19 @@ final class AWSModule {
 
     @Provides
     @Named("Stream")
-    static AsyncWorkQueue provideKinesisQueue(KinesisCompression compression, KinesisProducerWriter kinesisWriter) {
+    static AsyncWorkQueue provideKinesisQueue(PayloadCompression compression, KinesisProducerWriter kinesisWriter) {
         return new KinesisQueue(compression, kinesisWriter);
     }
 
     @Provides
     @Named("Storage")
-    static AsyncWorkQueue provideS3Queue(KinesisCompression compression, KinesisProducerWriter kinesisWriter) {
-        return new S3Queue(compression, kinesisWriter);
+    static AsyncWorkQueue provideS3Queue(PayloadCompression compression, S3Writer s3Writer) {
+        return new S3Queue(compression, s3Writer);
+    }
+
+    @Named("Storage")
+    static S3TransferManager provideS3TransferManager(ConnectorConfig config) {
+        return new S3TransferManager(config);
     }
 
     @Provides
@@ -64,7 +68,7 @@ final class AWSModule {
     }
 
     @Provides
-    static KinesisCompression provideKinesisCompression(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
+    static PayloadCompression provideKinesisCompression(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
         return new JSDKGzipPayload(streamJson, thresholdMonitor);
     }
 
@@ -81,5 +85,10 @@ final class AWSModule {
     @Provides
     static KinesisResults provideKinesisResults() {
         return new KinesisResults();
+    }
+
+    @Provides
+    static S3Results provideS3Results() {
+        return new S3Results();
     }
 }

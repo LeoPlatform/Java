@@ -1,7 +1,6 @@
 package com.leo.sdk.aws.payload;
 
 import com.leo.sdk.aws.DaggerAWSPlatform;
-import com.leo.sdk.aws.kinesis.KinesisCompression;
 import com.leo.sdk.bus.Bots;
 import com.leo.sdk.bus.SimpleLoadingBot;
 import com.leo.sdk.payload.EntityPayload;
@@ -29,7 +28,7 @@ import static org.testng.Assert.assertTrue;
 
 public class JSDKGzipPayloadTest {
 
-    private KinesisCompression compressor;
+    private PayloadCompression compressor;
 
     @BeforeClass
     void setUp() {

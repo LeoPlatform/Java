@@ -6,6 +6,9 @@ import com.leo.sdk.bus.LoadingBot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Convenience class for creating a <code>PlatformStream</code> instance.
+ */
 public final class LeoAWS {
     private static final Logger log = LoggerFactory.getLogger(LeoAWS.class);
 

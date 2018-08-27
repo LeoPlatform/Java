@@ -3,10 +3,12 @@ package com.leo.sdk.aws;
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.SDKModule;
-import com.leo.sdk.aws.kinesis.KinesisCompression;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.kinesis.KinesisResults;
+import com.leo.sdk.aws.payload.PayloadCompression;
 import com.leo.sdk.aws.payload.ThresholdMonitor;
+import com.leo.sdk.aws.s3.S3Results;
+import com.leo.sdk.aws.s3.S3TransferManager;
 import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.payload.StreamJsonPayload;
 import dagger.BindsInstance;
@@ -40,13 +42,17 @@ public interface AWSPlatform {
     @Named("Storage")
     AsyncWorkQueue s3Queue();
 
+    S3TransferManager s3TransferManager();
+
     List<AsyncWorkQueue> asyncWorkQueues();
 
-    KinesisCompression kinesisCompression();
+    PayloadCompression kinesisCompression();
 
     StreamJsonPayload streamJsonPayload();
 
     KinesisProducerWriter kinesisWrite();
 
     KinesisResults kinesisResults();
+
+    S3Results s3Results();
 }

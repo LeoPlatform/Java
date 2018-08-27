@@ -71,7 +71,6 @@ public final class KinesisResults {
         log.error("Could not upload record {} to Kinesis", id, throwable);
     }
 
-
     private Map<String, UserRecordResult> successMap() {
         return Collections.synchronizedMap(new LinkedHashMap<String, UserRecordResult>() {
             @Override

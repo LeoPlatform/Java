@@ -1,6 +1,5 @@
 package com.leo.sdk.aws.payload;
 
-import com.leo.sdk.aws.kinesis.KinesisCompression;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.StreamJsonPayload;
 
@@ -13,7 +12,7 @@ import java.util.zip.GZIPOutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public final class JSDKGzipPayload implements KinesisCompression {
+public final class JSDKGzipPayload implements PayloadCompression {
 
     private final StreamJsonPayload streamJson;
     private final ThresholdMonitor thresholdMonitor;

@@ -6,6 +6,7 @@ dependencies {
     compile(
             project(':leo-api'),
             'com.amazonaws:amazon-kinesis-producer:0.12.9',
+            'com.amazonaws:aws-java-sdk-s3:1.11.396',
             'com.fasterxml.jackson.core:jackson-core:2.9.6'
     )
 }

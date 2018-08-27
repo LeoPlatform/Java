@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.time.Duration;
+import java.util.stream.Stream;
 
 import static com.leo.sdk.TransferStyle.PROXY;
 
@@ -40,8 +42,22 @@ public final class TransferProxy implements AsyncWorkQueue {
         thresholdMonitor.end();
         StreamStats ss = workQueues.workQueue().end();
         StreamStats ssFailover = workQueues.failoverQueue().end();
-        //TODO: combine stats
-        return ss;
+        return new StreamStats() {
+            @Override
+            public Stream<String> successIds() {
+                return Stream.concat(ss.successIds(), ssFailover.successIds());
+            }
+
+            @Override
+            public Stream<String> failedIds() {
+                return Stream.concat(ss.failedIds(), ssFailover.failedIds());
+            }
+
+            @Override
+            public Duration totalTime() {
+                return ss.totalTime().plusMillis(ssFailover.totalTime().toMillis());
+            }
+        };
     }
 
     @Override
