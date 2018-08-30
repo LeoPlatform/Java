@@ -26,7 +26,7 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
 
     @Inject
     public InternalThresholdMonitor(ConnectorConfig config) {
-        maxBytesPerSecond = config.longValueOrElse("Stream.BytesPerSecondFailover", 50000L);
+        maxBytesPerSecond = config.longValueOrElse("Stream.BytesPerSecondFailover", 500000000L);
         warningThreshold = new BigDecimal(maxBytesPerSecond)
                 .multiply(new BigDecimal(".8"))
                 .setScale(0, HALF_UP);

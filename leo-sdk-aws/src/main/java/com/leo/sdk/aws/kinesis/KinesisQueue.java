@@ -18,7 +18,7 @@ public final class KinesisQueue implements AsyncWorkQueue {
 
     private static final Logger log = LoggerFactory.getLogger(KinesisQueue.class);
     private final TransferStyle style = STREAM;
-    private final ExecutorService asyncCompress = Executors.newWorkStealingPool();
+    private final ExecutorService asyncCompress = Executors.newFixedThreadPool(8);
     private final PayloadCompression compression;
     private final AsyncPayloadWriter kinesisWriter;
 

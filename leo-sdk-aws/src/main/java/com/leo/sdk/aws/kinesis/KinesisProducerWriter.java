@@ -26,7 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
-import static com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration.ThreadingModel.POOLED;
 import static com.leo.sdk.TransferStyle.STREAM;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -36,7 +35,7 @@ public final class KinesisProducerWriter implements AsyncPayloadWriter {
     private final KinesisResults resultsProcessor;
     private final KinesisProducer kinesis;
     private final String stream;
-    private final ExecutorService asyncComplete = Executors.newWorkStealingPool();
+    private final ExecutorService asyncComplete = Executors.newFixedThreadPool(8);
 
     @Inject
     public KinesisProducerWriter(ConnectorConfig config, KinesisResults resultsProcessor) {
@@ -45,13 +44,13 @@ public final class KinesisProducerWriter implements AsyncPayloadWriter {
         KinesisProducerConfiguration kCfg = new KinesisProducerConfiguration()
                 .setCredentialsProvider(credentials(config))
                 .setRegion(config.valueOrElse("Region", "us-east-1"))
-                .setRecordMaxBufferedTime(config.longValueOrElse("Stream.MaxBatchAge", 200L))
-                .setCollectionMaxCount(config.longValueOrElse("Stream.MaxBatchRecords", 500L))
-                .setRequestTimeout(60000)
-                .setMaxConnections(48)
-                .setMetricsNamespace("LEO Java SDK")
-                .setThreadingModel(POOLED)
-                .setThreadPoolSize(128);
+//                .setRecordMaxBufferedTime(config.longValueOrElse("Stream.MaxBatchAge", 200L))
+//                .setCollectionMaxCount(config.longValueOrElse("Stream.MaxBatchRecords", 500L))
+//                .setRequestTimeout(60000)
+//                .setMaxConnections(48)
+                .setMetricsNamespace("LEO Java SDK");
+//                .setThreadingModel(POOLED)
+//                .setThreadPoolSize(128);
         this.kinesis = new KinesisProducer(kCfg);
     }
 

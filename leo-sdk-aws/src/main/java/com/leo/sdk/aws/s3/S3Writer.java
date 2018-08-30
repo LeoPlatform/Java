@@ -33,7 +33,7 @@ public final class S3Writer implements AsyncPayloadWriter {
 
     private final S3TransferManager transferManager;
     private final S3Results resultsProcessor;
-    private final ExecutorService asyncWrite = Executors.newWorkStealingPool();
+    private final ExecutorService asyncWrite = Executors.newFixedThreadPool(8);
     private final AtomicLong fileCount = new AtomicLong();
 
     @Inject

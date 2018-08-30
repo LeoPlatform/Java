@@ -17,7 +17,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class S3Queue implements AsyncWorkQueue {
     private static final Logger log = LoggerFactory.getLogger(S3Queue.class);
 
-    private final ExecutorService asyncCompress = Executors.newWorkStealingPool();
+    private final ExecutorService asyncCompress = Executors.newFixedThreadPool(8);
     private final PayloadCompression compression;
     private final AsyncPayloadWriter s3Writer;
 

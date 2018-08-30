@@ -5,10 +5,12 @@ import java.util.Objects;
 public final class Field {
     private final String field;
     private final FieldType type;
+    private final String value;
 
-    public Field(String field, FieldType type) {
+    public Field(String field, FieldType type, String value) {
         this.field = field;
         this.type = type;
+        this.value = value;
     }
 
     public String getField() {
@@ -17,6 +19,10 @@ public final class Field {
 
     public FieldType getType() {
         return type;
+    }
+
+    public String getValue() {
+        return value;
     }
 
     @Override
@@ -32,6 +38,6 @@ public final class Field {
 
     @Override
     public int hashCode() {
-        return Objects.hash(field, type);
+        return Objects.hash(field, type, value);
     }
 }

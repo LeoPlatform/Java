@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import java.sql.CallableStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -20,6 +21,7 @@ import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.function.ToLongFunction;
 
+import static java.sql.ResultSet.FETCH_FORWARD;
 import static oracle.jdbc.OracleConnection.*;
 
 public final class OracleChangeRegistrar {
@@ -43,6 +45,7 @@ public final class OracleChangeRegistrar {
             DatabaseChangeRegistration dcr = register(destination, conn);
             addChangeListener(dcr, Optional.ofNullable(executor).orElse(Runnable::run));
             addObjects(conn, dcr);
+            increaseRowThreshold(conn);
             return dcr;
         } catch (SQLException e) {
             String msg = "'grant change notification to <User>' required for registration";
@@ -78,9 +81,27 @@ public final class OracleChangeRegistrar {
         }
     }
 
+    private void increaseRowThreshold(OracleConnection conn) {
+        try (CallableStatement cs = conn.prepareCall("{call DBMS_CQ_NOTIFICATION.SET_ROWID_THRESHOLD(?, ?)}")) {
+            source.tables().forEach(t -> {
+                try {
+                    cs.setString(1, t);
+                    cs.setInt(2, 100_000);
+                    cs.executeUpdate();
+                } catch (SQLException s) {
+                    throw new IllegalStateException("Could not set threshold parameter " + t, s);
+                }
+            });
+        } catch (SQLException s) {
+            throw new IllegalStateException("Could not set ROWID threshold to 10,000", s);
+        }
+    }
+
     private void addObjects(OracleConnection conn, DatabaseChangeRegistration dcr) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             ((OracleStatement) stmt).setDatabaseChangeRegistration(dcr);
+            stmt.setFetchSize(100_000);
+            stmt.setFetchDirection(FETCH_FORWARD);
             registerTables(stmt);
         } catch (SQLException s) {
             String msg = "Could not register tables tables for notification";
@@ -116,6 +137,7 @@ public final class OracleChangeRegistrar {
     private Properties listenerProps(OracleChangeDestination destination) {
         Properties p = new Properties(destination.getProps());
         p.put(DCN_NOTIFY_ROWIDS, "true");
+        p.put(NTF_QOS_RELIABLE, "true");
         p.put(NTF_LOCAL_HOST, destination.getHost());
         p.put(NTF_LOCAL_TCP_PORT, String.valueOf(destination.getPort()));
         return p;

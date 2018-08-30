@@ -55,7 +55,7 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
 
             jsonWriter.writeObject(jsonObject);
             jsonWriter.close();
-            log.info("JSON payload", sw.toString());
+            log.info("JSON payload {}", sw.toString());
             return jsonObject;
         };
     }
@@ -64,9 +64,12 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
         JsonArrayBuilder fields = changeEvent.getFields().stream()
                 .collect(Json::createArrayBuilder,
                         (b, f) -> b.add(Json.createObjectBuilder()
-                                .add("field", "bla")
-                                .add("type", "blah")),
+                                .add("field", f.getField())
+                                .add("type", f.getType().name())
+                                .add("value", f.getValue())
+                        ),
                         JsonArrayBuilder::addAll);
+
         return Json.createObjectBuilder()
                 .add("source", changeEvent.getSource().name())
                 .add("op", changeEvent.getOp().name())
@@ -86,17 +89,20 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
         String table = tableName(desc);
 
         return Optional.ofNullable(desc)
-                .filter(d -> !table.isEmpty())
-                .map(TableChangeDescription::getTableOperations)
-                .orElse(EnumSet.noneOf(TableOperation.class))
+                .map(Arrays::asList)
+                .orElse(Collections.emptyList())
                 .stream()
-                .filter(supportedOps::containsKey)
-                .map(supportedOps::get)
-                .map(o -> toEvent(o, table));
+                .map(TableChangeDescription::getRowChangeDescription)
+                .map(Arrays::asList)
+                .flatMap(Collection::stream)
+                .map(r -> {
+                    TableOperation top = TableOperation.valueOf(r.getRowOperation().name());
+                    return toEvent(supportedOps.get(top), table, r.getRowid().stringValue());
+                });
     }
 
-    private ChangeEvent toEvent(Op op, String tableName) {
-        List<Field> fields = Collections.singletonList(new Field("ROWID", FieldType.STRING));
+    private ChangeEvent toEvent(Op op, String tableName, String value) {
+        List<Field> fields = Collections.singletonList(new Field("ROWID", FieldType.STRING, value));
         return new ChangeEvent(Source.ORACLE, op, tableName, fields);
     }
 
