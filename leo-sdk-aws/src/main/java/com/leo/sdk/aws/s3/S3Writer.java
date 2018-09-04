@@ -77,16 +77,15 @@ public final class S3Writer implements AsyncPayloadWriter {
         return transferManager.transfer(unique);
     }
 
-
     private String fileName(PayloadIdentifier payloadIdentifier) {
         String queue = payloadIdentifier.getEvent();
         Instant payloadTime = Instant.ofEpochMilli(payloadIdentifier.getTimestamp());
         String formattedTime = eidFormat.format(payloadTime);
-        String fileNumPad = padZeros(fileCount.incrementAndGet());
+        String fileNumPad = padWithZeros(fileCount.incrementAndGet());
         return String.format("bus/%s/z/%s%d-%s.gz", queue, formattedTime, payloadTime.toEpochMilli(), fileNumPad);
     }
 
-    private String padZeros(long value) {
+    private String padWithZeros(long value) {
         String val = String.valueOf(value);
         return String.format("%0" + (7 - val.length()) + "d%s", 0, val);
     }

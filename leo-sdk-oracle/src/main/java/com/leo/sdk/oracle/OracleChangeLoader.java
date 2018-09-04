@@ -8,7 +8,6 @@ import javax.inject.Inject;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -37,24 +36,7 @@ public final class OracleChangeLoader {
         }
     }
 
-    public CompletableFuture<WatchResults> end() {
-        return end(Runnable::run);
-    }
-
-    public CompletableFuture<WatchResults> end(Executor executor) {
-        if (loading.getAndSet(false)) {
-            return CompletableFuture
-                    .supplyAsync(this::deregister, validate(executor));
-        } else {
-            return noResults();
-        }
-    }
-
-    private Executor validate(Executor executor) {
-        return Optional.ofNullable(executor).orElse(Runnable::run);
-    }
-
-    private WatchResults deregister() {
+    public WatchResults deregister() {
         log.info("Stopping Oracle change loader");
         return Optional.ofNullable(dcr)
                 .map(registrar::remove)
@@ -62,9 +44,23 @@ public final class OracleChangeLoader {
                 .orElse(emptyResults());
     }
 
-    private CompletableFuture<WatchResults> noResults() {
-        WatchResults empty = emptyResults();
-        return CompletableFuture.completedFuture(empty);
+    public WatchResults end() {
+        return end(Runnable::run);
+    }
+
+    public WatchResults end(Executor executor) {
+        if (loading.getAndSet(false)) {
+            return Optional.ofNullable(registrar)
+                    .map(OracleChangeRegistrar::tables)
+                    .map(t -> new WatchResults(start, Instant.now(), t))
+                    .orElse(emptyResults());
+        } else {
+            return emptyResults();
+        }
+    }
+
+    private Executor validate(Executor executor) {
+        return Optional.ofNullable(executor).orElse(Runnable::run);
     }
 
     private WatchResults emptyResults() {

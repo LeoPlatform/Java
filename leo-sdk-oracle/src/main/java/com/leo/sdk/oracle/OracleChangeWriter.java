@@ -1,122 +1,148 @@
 package com.leo.sdk.oracle;
 
-import com.leo.schema.*;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.payload.SimplePayload;
 import oracle.jdbc.dcn.DatabaseChangeEvent;
 import oracle.jdbc.dcn.DatabaseChangeListener;
+import oracle.jdbc.dcn.RowChangeDescription;
 import oracle.jdbc.dcn.TableChangeDescription;
+import oracle.sql.ROWID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import javax.json.*;
-import java.io.StringWriter;
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
-import static javax.json.stream.JsonGenerator.PRETTY_PRINTING;
-import static oracle.jdbc.dcn.TableChangeDescription.TableOperation;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 
 public final class OracleChangeWriter implements DatabaseChangeListener {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeWriter.class);
 
-    private static final Map<TableOperation, Op> supportedOps = supportedOps();
     private final PlatformStream stream;
+    private final Map<String, Set<String>> changedRows = new HashMap<>();
+    private final Lock lock = new ReentrantLock();
+    private final ScheduledExecutorService writer = Executors.newSingleThreadScheduledExecutor();
 
     @Inject
     public OracleChangeWriter(PlatformStream stream) {
+        writer.scheduleWithFixedDelay(periodicWrite(), 100L, 100L, MILLISECONDS);
         this.stream = stream;
     }
 
     @Override
     public void onDatabaseChangeNotification(DatabaseChangeEvent changeEvent) {
         log.info("Received database notification {}", changeEvent);
-        validateChangeEvents(changeEvent)
-                .parallelStream()
-                .flatMap(this::toEvents)
-                .map(this::toJson)
-                .map(this::toPayload)
-                .forEach(stream::load);
+        Map<String, Set<String>> changes = rowsChanged(changeEvent);
+        lock.lock();
+        try {
+            changes.forEach((key, value) -> {
+                changedRows.putIfAbsent(key, value);
+                changedRows.computeIfPresent(key,
+                        (tbl, rows) -> Stream.of(rows, value)
+                                .flatMap(Set::stream)
+                                .collect(toSet()));
+            });
+        } finally {
+            lock.unlock();
+        }
     }
 
-    public CompletableFuture<StreamStats> end() {
-        return stream.end();
-    }
-
-    private SimplePayload toPayload(JsonObject jsonObject) {
+    private Runnable periodicWrite() {
         return () -> {
-            Map<String, Object> props = Collections.singletonMap(PRETTY_PRINTING, true);
-            JsonWriterFactory writerFactory = Json.createWriterFactory(props);
-            StringWriter sw = new StringWriter();
-            JsonWriter jsonWriter = writerFactory.createWriter(sw);
+            Map<String, Set<String>> changes;
+            lock.lock();
+            try {
+                changes = new HashMap<>(changedRows);
+                changedRows.clear();
+            } finally {
+                lock.unlock();
+            }
 
-            jsonWriter.writeObject(jsonObject);
-            jsonWriter.close();
-            log.info("JSON payload {}", sw.toString());
-            return jsonObject;
+            Optional.of(changes)
+                    .filter(c -> !c.isEmpty())
+                    .map(Map::entrySet)
+                    .map(Collection::stream)
+                    .map(this::reduceEntries)
+                    .map(JsonObjectBuilder::build)
+                    .map(this::toPayload)
+                    .ifPresent(stream::load);
         };
     }
 
-    private JsonObject toJson(ChangeEvent changeEvent) {
-        JsonArrayBuilder fields = changeEvent.getFields().stream()
-                .collect(Json::createArrayBuilder,
-                        (b, f) -> b.add(Json.createObjectBuilder()
-                                .add("field", f.getField())
-                                .add("type", f.getType().name())
-                                .add("value", f.getValue())
-                        ),
-                        JsonArrayBuilder::addAll);
-
-        return Json.createObjectBuilder()
-                .add("source", changeEvent.getSource().name())
-                .add("op", changeEvent.getOp().name())
-                .add("name", changeEvent.getName())
-                .add("fields", fields)
-                .build();
+    private JsonObjectBuilder reduceEntries(Stream<Entry<String, Set<String>>> s) {
+        return s.reduce(Json.createObjectBuilder(),
+                (b, c) -> b.add(c.getKey(), Json.createArrayBuilder(c.getValue())),
+                JsonObjectBuilder::addAll);
     }
 
-    private List<TableChangeDescription> validateChangeEvents(DatabaseChangeEvent changeEvent) {
+    private Map<String, Set<String>> rowsChanged(DatabaseChangeEvent changeEvent) {
+        return tableChanges(changeEvent)
+                .parallelStream()
+                .map(this::rowChanges)
+                .collect(toMap(
+                        Entry::getKey,
+                        Entry::getValue,
+                        (r1, r2) -> Stream.of(r1, r2).flatMap(Set::stream).collect(toSet())));
+    }
+
+    private List<TableChangeDescription> tableChanges(DatabaseChangeEvent changeEvent) {
         return Optional.ofNullable(changeEvent)
                 .map(DatabaseChangeEvent::getTableChangeDescription)
                 .map(Arrays::asList)
                 .orElse(Collections.emptyList());
     }
 
-    private Stream<ChangeEvent> toEvents(TableChangeDescription desc) {
+    private Entry<String, Set<String>> rowChanges(TableChangeDescription desc) {
         String table = tableName(desc);
 
-        return Optional.ofNullable(desc)
-                .map(Arrays::asList)
-                .orElse(Collections.emptyList())
-                .stream()
-                .map(TableChangeDescription::getRowChangeDescription)
-                .map(Arrays::asList)
-                .flatMap(Collection::stream)
-                .map(r -> {
-                    TableOperation top = TableOperation.valueOf(r.getRowOperation().name());
-                    return toEvent(supportedOps.get(top), table, r.getRowid().stringValue());
-                });
+        Set<String> rowIds = rowChangeDescription(desc).stream()
+                .map(RowChangeDescription::getRowid)
+                .map(ROWID::stringValue)
+                .collect(toSet());
+
+        return new SimpleImmutableEntry<>(table, rowIds);
     }
 
-    private ChangeEvent toEvent(Op op, String tableName, String value) {
-        List<Field> fields = Collections.singletonList(new Field("ROWID", FieldType.STRING, value));
-        return new ChangeEvent(Source.ORACLE, op, tableName, fields);
+    private SimplePayload toPayload(JsonObject jsonObject) {
+        return () -> jsonObject;
+    }
+
+    public CompletableFuture<StreamStats> end() {
+        writer.shutdownNow();
+        try {
+            writer.awaitTermination(30L, SECONDS);
+            writer.shutdownNow();
+        } catch (InterruptedException e) {
+            log.warn("Could not shutdown background change writer");
+        }
+        return stream.end();
     }
 
     private String tableName(TableChangeDescription desc) {
         return Optional.ofNullable(desc)
                 .map(TableChangeDescription::getTableName)
-                .orElse("");
+                .orElseThrow(() -> new IllegalArgumentException("Missing table name in description " + desc));
     }
 
-    private static Map<TableOperation, Op> supportedOps() {
-        return new EnumMap<TableOperation, Op>(TableOperation.class) {{
-            put(TableOperation.INSERT, Op.INSERT);
-            put(TableOperation.UPDATE, Op.UPDATE);
-            put(TableOperation.DELETE, Op.DELETE);
-        }};
+    private List<RowChangeDescription> rowChangeDescription(TableChangeDescription desc) {
+        return Optional.ofNullable(desc)
+                .map(TableChangeDescription::getRowChangeDescription)
+                .map(Arrays::asList)
+                .orElse(Collections.emptyList());
     }
 }

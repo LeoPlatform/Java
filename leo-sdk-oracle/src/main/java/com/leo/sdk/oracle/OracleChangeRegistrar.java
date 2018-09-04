@@ -64,6 +64,10 @@ public final class OracleChangeRegistrar {
         }
     }
 
+    public List<String> tables() {
+        return source.tables();
+    }
+
     private DatabaseChangeRegistration register(OracleChangeDestination destination, OracleConnection conn) throws SQLException {
         Properties props = listenerProps(destination);
         DatabaseChangeRegistration dcr = Optional
@@ -112,7 +116,7 @@ public final class OracleChangeRegistrar {
     }
 
     private void registerTables(Statement stmt) {
-        long totalEntries = source.tables().parallelStream()
+        long totalEntries = source.tables().stream()
                 .map(t -> consume(stmt, t))
                 .mapToLong(getRows())
                 .sum();
@@ -130,7 +134,7 @@ public final class OracleChangeRegistrar {
             }
             return new SimpleImmutableEntry<>(table, entries);
         } catch (SQLException e) {
-            throw new IllegalStateException("Could not read from registered table", e);
+            throw new IllegalStateException("Could not read from registered table " + table, e);
         }
     }
 
