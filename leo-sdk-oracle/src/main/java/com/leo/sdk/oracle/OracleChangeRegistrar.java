@@ -1,5 +1,6 @@
 package com.leo.sdk.oracle;
 
+import com.leo.sdk.ExecutorManager;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleStatement;
 import oracle.jdbc.dcn.DatabaseChangeListener;
@@ -18,7 +19,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.Executor;
 import java.util.function.ToLongFunction;
 
 import static java.sql.ResultSet.FETCH_FORWARD;
@@ -29,21 +29,19 @@ public final class OracleChangeRegistrar {
 
     private final OracleChangeSource source;
     private final DatabaseChangeListener dcl;
+    private final ExecutorManager executorManager;
 
     @Inject
-    public OracleChangeRegistrar(OracleChangeSource source, DatabaseChangeListener dcl) {
+    public OracleChangeRegistrar(OracleChangeSource source, DatabaseChangeListener dcl, ExecutorManager executorManager) {
         this.source = source;
         this.dcl = dcl;
+        this.executorManager = executorManager;
     }
 
     public DatabaseChangeRegistration create(OracleChangeDestination destination) {
-        return create(destination, Runnable::run);
-    }
-
-    public DatabaseChangeRegistration create(OracleChangeDestination destination, Executor executor) {
         try (OracleConnection conn = source.connection()) {
             DatabaseChangeRegistration dcr = register(destination, conn);
-            addChangeListener(dcr, Optional.ofNullable(executor).orElse(Runnable::run));
+            addChangeListener(dcr);
             addObjects(conn, dcr);
             increaseRowThreshold(conn);
             return dcr;
@@ -64,7 +62,8 @@ public final class OracleChangeRegistrar {
         }
     }
 
-    public List<String> tables() {
+    public List<String> end() {
+        executorManager.end();
         return source.tables();
     }
 
@@ -77,9 +76,9 @@ public final class OracleChangeRegistrar {
         return dcr;
     }
 
-    private void addChangeListener(DatabaseChangeRegistration dcr, Executor executor) {
+    private void addChangeListener(DatabaseChangeRegistration dcr) {
         try {
-            dcr.addListener(dcl, executor);
+            dcr.addListener(dcl, executorManager.get());
         } catch (SQLException e) {
             throw new IllegalStateException("Could not add listener to registrar", e);
         }

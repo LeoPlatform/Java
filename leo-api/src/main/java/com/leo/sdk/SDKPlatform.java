@@ -7,4 +7,6 @@ import dagger.Component;
 public interface SDKPlatform {
 
     ConnectorConfig connectorConfig();
+
+    ExecutorManager executorManager();
 }

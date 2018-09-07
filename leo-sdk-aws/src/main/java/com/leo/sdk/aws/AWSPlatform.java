@@ -1,11 +1,12 @@
 package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
+import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.SDKModule;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.kinesis.KinesisResults;
-import com.leo.sdk.aws.payload.PayloadCompression;
+import com.leo.sdk.aws.payload.CompressionWriter;
 import com.leo.sdk.aws.payload.ThresholdMonitor;
 import com.leo.sdk.aws.s3.S3Results;
 import com.leo.sdk.aws.s3.S3TransferManager;
@@ -25,6 +26,9 @@ public interface AWSPlatform {
     interface Builder {
         @BindsInstance
         Builder loadingBot(LoadingBot bot);
+
+        @BindsInstance
+        Builder executorManager(ExecutorManager executorManager);
 
         AWSPlatform build();
     }
@@ -46,7 +50,7 @@ public interface AWSPlatform {
 
     List<AsyncWorkQueue> asyncWorkQueues();
 
-    PayloadCompression kinesisCompression();
+    CompressionWriter kinesisCompression();
 
     StreamJsonPayload streamJsonPayload();
 

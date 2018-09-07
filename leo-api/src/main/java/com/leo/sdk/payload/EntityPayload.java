@@ -28,13 +28,13 @@ public class EntityPayload {
     private final String eid;
     private final StreamCorrelation correlation_id = null;
 
-    public EntityPayload(SimplePayload simplePayload, LoadingBot bot) {
+    public EntityPayload(EventPayload simplePayload, LoadingBot bot) {
         Instant now = Instant.now();
-        this.payload = simplePayload.entity();
+        this.payload = simplePayload.payload();
         this.id = bot.name();
         this.event = bot.destination().name();
         this.event_source_timestamp = Optional.of(simplePayload)
-                .map(SimplePayload::eventTime)
+                .map(EventPayload::eventTime)
                 .orElse(now)
                 .toEpochMilli();
         this.timestamp = now.toEpochMilli();

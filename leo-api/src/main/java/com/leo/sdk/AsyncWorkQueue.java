@@ -1,12 +1,12 @@
 package com.leo.sdk;
 
-import com.leo.sdk.payload.EntityPayload;
+import com.leo.sdk.payload.EventPayload;
 
 import javax.inject.Singleton;
 
 @Singleton
 public interface AsyncWorkQueue {
-    void addEntity(EntityPayload entity);
+    void addEntity(EventPayload entity);
 
     StreamStats end();
 

@@ -25,8 +25,8 @@ import static java.util.stream.Collectors.toList;
 @Module
 final class AWSModule {
     @Provides
-    static PlatformStream providePlatformStream(@Named("Proxy") AsyncWorkQueue transferProxy, LoadingBot bot) {
-        return new AWSStream(transferProxy, bot);
+    static PlatformStream providePlatformStream(@Named("Proxy") AsyncWorkQueue transferProxy) {
+        return new AWSStream(transferProxy);
     }
 
     @Provides
@@ -47,13 +47,13 @@ final class AWSModule {
 
     @Provides
     @Named("Stream")
-    static AsyncWorkQueue provideKinesisQueue(PayloadCompression compression, KinesisProducerWriter kinesisWriter) {
-        return new KinesisQueue(compression, kinesisWriter);
+    static AsyncWorkQueue provideKinesisQueue(ConnectorConfig config, CompressionWriter compression, LoadingBot bot) {
+        return new KinesisQueue(config, compression, bot);
     }
 
     @Provides
     @Named("Storage")
-    static AsyncWorkQueue provideS3Queue(PayloadCompression compression, S3Writer s3Writer) {
+    static AsyncWorkQueue provideS3Queue(CompressionWriter compression, S3Writer s3Writer) {
         return new S3Queue(compression, s3Writer);
     }
 
@@ -68,13 +68,13 @@ final class AWSModule {
     }
 
     @Provides
-    static PayloadCompression provideKinesisCompression(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
-        return new JSDKGzipPayload(streamJson, thresholdMonitor);
+    static CompressionWriter provideKinesisCompression(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
+        return new JSDKGzipWriter(streamJson, thresholdMonitor);
     }
 
     @Provides
-    static StreamJsonPayload provideStreamJsonPayload() {
-        return new JacksonNewlinePayload();
+    static StreamJsonPayload provideStreamJsonPayload(LoadingBot bot) {
+        return new JacksonNewlinePayload(bot);
     }
 
     @Provides

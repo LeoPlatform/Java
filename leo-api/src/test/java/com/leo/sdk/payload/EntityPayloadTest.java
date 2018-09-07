@@ -24,7 +24,7 @@ public class EntityPayloadTest {
         assertEquals(sp.getPayload().toString(), "{\"simple\":\"payload\"}", "JSON payload mismatch");
     }
 
-    private SimplePayload simplePayload() {
+    private EventPayload simplePayload() {
         return () -> Json.createObjectBuilder()
                 .add("simple", "payload")
                 .build();

@@ -15,11 +15,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,11 +33,12 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public final class KinesisProducerWriter implements AsyncPayloadWriter {
     private static final Logger log = LoggerFactory.getLogger(KinesisProducerWriter.class);
+    private static final Random RANDOM = new Random();
     private final TransferStyle style = STREAM;
     private final KinesisResults resultsProcessor;
     private final KinesisProducer kinesis;
     private final String stream;
-    private final ExecutorService asyncComplete = Executors.newFixedThreadPool(8);
+    private final ExecutorService asyncComplete = Executors.newFixedThreadPool(64);
 
     @Inject
     public KinesisProducerWriter(ConnectorConfig config, KinesisResults resultsProcessor) {
@@ -44,13 +47,17 @@ public final class KinesisProducerWriter implements AsyncPayloadWriter {
         KinesisProducerConfiguration kCfg = new KinesisProducerConfiguration()
                 .setCredentialsProvider(credentials(config))
                 .setRegion(config.valueOrElse("Region", "us-east-1"))
+                .setAggregationEnabled(false)
 //                .setRecordMaxBufferedTime(config.longValueOrElse("Stream.MaxBatchAge", 200L))
+//                .setRecordMaxBufferedTime(100L)
 //                .setCollectionMaxCount(config.longValueOrElse("Stream.MaxBatchRecords", 500L))
-//                .setRequestTimeout(60000)
+                .setCollectionMaxCount(1)
+                .setRequestTimeout(60000)
 //                .setMaxConnections(48)
-                .setMetricsNamespace("LEO Java SDK");
+                .setMetricsNamespace("LEO Java SDK")
 //                .setThreadingModel(POOLED)
-//                .setThreadPoolSize(128);
+//                .setThreadPoolSize(128)
+                .setLogLevel("info");
         this.kinesis = new KinesisProducer(kCfg);
     }
 
@@ -86,7 +93,8 @@ public final class KinesisProducerWriter implements AsyncPayloadWriter {
 
     private Entry<String, UserRecordResult> addRecord(PayloadIdentifier payload) {
         try {
-            UserRecordResult result = kinesis.addUserRecord(stream, "0", payload.getPayload()).get();
+            String hashKey = new BigInteger(128, RANDOM).toString(10);
+            UserRecordResult result = kinesis.addUserRecord(stream, "0", hashKey, payload.getPayload()).get();
             return new SimpleImmutableEntry<>(payload.getId(), result);
         } catch (Exception e) {
             throw new IllegalStateException(e);

@@ -2,7 +2,7 @@ package com.leo.sdk.oracle;
 
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.StreamStats;
-import com.leo.sdk.payload.SimplePayload;
+import com.leo.sdk.payload.EventPayload;
 import oracle.jdbc.dcn.DatabaseChangeEvent;
 import oracle.jdbc.dcn.DatabaseChangeListener;
 import oracle.jdbc.dcn.RowChangeDescription;
@@ -47,19 +47,19 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
     @Override
     public void onDatabaseChangeNotification(DatabaseChangeEvent changeEvent) {
         log.info("Received database notification {}", changeEvent);
-        Map<String, Set<String>> changes = rowsChanged(changeEvent);
-        lock.lock();
-        try {
-            changes.forEach((key, value) -> {
-                changedRows.putIfAbsent(key, value);
-                changedRows.computeIfPresent(key,
-                        (tbl, rows) -> Stream.of(rows, value)
-                                .flatMap(Set::stream)
-                                .collect(toSet()));
-            });
-        } finally {
-            lock.unlock();
-        }
+        Optional.of(rowsChanged(changeEvent))
+                .filter(r -> !r.isEmpty())
+                .ifPresent(changes -> {
+                    lock.lock();
+                    try {
+                        changes.forEach((key, value) -> changedRows
+                                .merge(key, value, (tbl, rows) -> Stream.of(rows, value)
+                                        .flatMap(Set::stream)
+                                        .collect(toSet())));
+                    } finally {
+                        lock.unlock();
+                    }
+                });
     }
 
     private Runnable periodicWrite() {
@@ -118,7 +118,7 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
         return new SimpleImmutableEntry<>(table, rowIds);
     }
 
-    private SimplePayload toPayload(JsonObject jsonObject) {
+    private EventPayload toPayload(JsonObject jsonObject) {
         return () -> jsonObject;
     }
 

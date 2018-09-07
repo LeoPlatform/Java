@@ -1,13 +1,15 @@
 package com.leo.sdk.aws.s3;
 
-import com.leo.sdk.*;
-import com.leo.sdk.aws.payload.PayloadCompression;
-import com.leo.sdk.payload.EntityPayload;
+import com.leo.sdk.AsyncPayloadWriter;
+import com.leo.sdk.AsyncWorkQueue;
+import com.leo.sdk.StreamStats;
+import com.leo.sdk.TransferStyle;
+import com.leo.sdk.aws.payload.CompressionWriter;
+import com.leo.sdk.payload.EventPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -18,21 +20,21 @@ public final class S3Queue implements AsyncWorkQueue {
     private static final Logger log = LoggerFactory.getLogger(S3Queue.class);
 
     private final ExecutorService asyncCompress = Executors.newFixedThreadPool(8);
-    private final PayloadCompression compression;
+    private final CompressionWriter compression;
     private final AsyncPayloadWriter s3Writer;
 
     @Inject
-    public S3Queue(PayloadCompression compression, S3Writer s3Writer) {
+    public S3Queue(CompressionWriter compression, S3Writer s3Writer) {
         this.compression = compression;
         this.s3Writer = s3Writer;
     }
 
     @Override
-    public void addEntity(EntityPayload entity) {
-        CompletableFuture
-                .supplyAsync(() -> compression.compress(entity), asyncCompress)
-                .thenApply(byteBuffer -> new PayloadIdentifier(entity, byteBuffer))
-                .thenAccept(s3Writer::write);
+    public void addEntity(EventPayload entity) {
+//        CompletableFuture
+//                .supplyAsync(() -> compression.compress(entity), asyncCompress)
+//                .thenApply(byteBuffer -> new PayloadIdentifier(entity, byteBuffer))
+//                .thenAccept(s3Writer::write);
     }
 
     @Override

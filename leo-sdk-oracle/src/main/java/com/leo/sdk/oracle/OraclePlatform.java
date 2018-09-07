@@ -1,11 +1,12 @@
 package com.leo.sdk.oracle;
 
 import com.leo.sdk.PlatformStream;
+import com.leo.sdk.SDKModule;
 import dagger.BindsInstance;
 import dagger.Component;
 import oracle.jdbc.dcn.DatabaseChangeListener;
 
-@Component(modules = OracleModule.class)
+@Component(modules = {OracleModule.class, SDKModule.class})
 public interface OraclePlatform {
 
     OracleChangeRegistrar oracleChangeRegistrar();

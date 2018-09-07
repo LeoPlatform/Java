@@ -4,7 +4,7 @@ import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.TransferStyle;
 import com.leo.sdk.aws.payload.ThresholdMonitor;
-import com.leo.sdk.payload.EntityPayload;
+import com.leo.sdk.payload.EventPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +29,7 @@ public final class TransferProxy implements AsyncWorkQueue {
     }
 
     @Override
-    public void addEntity(EntityPayload entity) {
+    public void addEntity(EventPayload entity) {
         if (thresholdMonitor.isFailover()) {
             workQueues.failoverQueue().addEntity(entity);
         } else {

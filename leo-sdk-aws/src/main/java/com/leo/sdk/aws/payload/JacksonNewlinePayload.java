@@ -2,9 +2,11 @@ package com.leo.sdk.aws.payload;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr353.JSR353Module;
-import com.leo.sdk.payload.EntityPayload;
+import com.leo.sdk.bus.LoadingBot;
+import com.leo.sdk.payload.EventPayload;
 import com.leo.sdk.payload.StreamJsonPayload;
 
+import javax.inject.Inject;
 import java.io.IOException;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS;
@@ -13,11 +15,17 @@ public final class JacksonNewlinePayload implements StreamJsonPayload {
     private static final String NEWLINE = "\n";
 
     private final ObjectMapper mapper = buildMapper();
+    private final LoadingBot bot;
+
+    @Inject
+    public JacksonNewlinePayload(LoadingBot bot) {
+        this.bot = bot;
+    }
 
     @Override
-    public String toJsonString(EntityPayload entityPayload) {
+    public String toJsonString(EventPayload eventPayload) {
         try {
-            String json = mapper.writeValueAsString(entityPayload);
+            String json = mapper.writeValueAsString(eventPayload);
             return String.format("%s%s", json, NEWLINE);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to create JSON payload");

@@ -12,4 +12,9 @@ public final class SDKModule {
     public static ConnectorConfig provideConnectorConfig() {
         return new FileConfig();
     }
+
+    @Provides
+    public static ExecutorManager provideExecutorManager(ConnectorConfig config) {
+        return new ExecutorManager(config);
+    }
 }

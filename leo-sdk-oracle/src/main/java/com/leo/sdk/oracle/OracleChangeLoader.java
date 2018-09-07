@@ -8,7 +8,6 @@ import javax.inject.Inject;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class OracleChangeLoader {
@@ -25,13 +24,9 @@ public final class OracleChangeLoader {
     }
 
     public void register(OracleChangeDestination destination) {
-        register(destination, Runnable::run);
-    }
-
-    public void register(OracleChangeDestination destination, Executor executor) {
         if (!loading.getAndSet(true)) {
             start = Instant.now();
-            this.dcr = registrar.create(destination, validate(executor));
+            this.dcr = registrar.create(destination);
             loading.set(false);
         }
     }
@@ -45,22 +40,14 @@ public final class OracleChangeLoader {
     }
 
     public WatchResults end() {
-        return end(Runnable::run);
-    }
-
-    public WatchResults end(Executor executor) {
         if (loading.getAndSet(false)) {
             return Optional.ofNullable(registrar)
-                    .map(OracleChangeRegistrar::tables)
+                    .map(OracleChangeRegistrar::end)
                     .map(t -> new WatchResults(start, Instant.now(), t))
                     .orElse(emptyResults());
         } else {
             return emptyResults();
         }
-    }
-
-    private Executor validate(Executor executor) {
-        return Optional.ofNullable(executor).orElse(Runnable::run);
     }
 
     private WatchResults emptyResults() {

@@ -3,9 +3,8 @@ package com.leo.sdk.aws;
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.StreamStats;
-import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.payload.EntityPayload;
-import com.leo.sdk.payload.SimplePayload;
+import com.leo.sdk.payload.EventPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,23 +20,21 @@ import java.util.stream.Stream;
 public final class AWSStream implements PlatformStream {
     private static final Logger log = LoggerFactory.getLogger(AWSStream.class);
     private final AsyncWorkQueue transferProxy;
-    private final LoadingBot bot;
     private final AtomicBoolean streaming;
 
     @Inject
-    public AWSStream(@Named("Proxy") AsyncWorkQueue transferProxy, LoadingBot bot) {
+    public AWSStream(@Named("Proxy") AsyncWorkQueue transferProxy) {
         this.transferProxy = transferProxy;
-        this.bot = bot;
         this.streaming = new AtomicBoolean(true);
     }
 
     @Override
-    public void load(SimplePayload payload) {
-        transferProxy.addEntity(new EntityPayload(payload, bot));
+    public void load(EventPayload payload) {
+        transferProxy.addEntity(payload);
     }
 
     @Override
-    public SimplePayload enhance(EntityPayload payload) {
+    public EventPayload enhance(EntityPayload payload) {
         return () -> Json.createObjectBuilder().build();
     }
 
