@@ -5,11 +5,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+@Singleton
 public final class OracleChangeLoader {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeLoader.class);
 

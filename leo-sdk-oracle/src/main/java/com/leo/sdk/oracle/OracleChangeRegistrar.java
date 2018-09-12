@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.sql.CallableStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,6 +25,7 @@ import java.util.function.ToLongFunction;
 import static java.sql.ResultSet.FETCH_FORWARD;
 import static oracle.jdbc.OracleConnection.*;
 
+@Singleton
 public final class OracleChangeRegistrar {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeRegistrar.class);
 

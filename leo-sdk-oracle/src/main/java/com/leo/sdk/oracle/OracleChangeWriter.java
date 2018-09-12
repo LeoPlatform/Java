@@ -1,5 +1,6 @@
 package com.leo.sdk.oracle;
 
+import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.payload.EventPayload;
@@ -12,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
@@ -19,29 +21,34 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
+@Singleton
 public final class OracleChangeWriter implements DatabaseChangeListener {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeWriter.class);
 
     private final PlatformStream stream;
+    private final ExecutorManager executorManager;
+    private final List<CompletableFuture<Void>> pendingChanges = new LinkedList<>();
     private final Map<String, Set<String>> changedRows = new HashMap<>();
+    private final AtomicBoolean running;
     private final Lock lock = new ReentrantLock();
-    private final ScheduledExecutorService writer = Executors.newSingleThreadScheduledExecutor();
+    private final Condition batchWrite = lock.newCondition();
 
     @Inject
-    public OracleChangeWriter(PlatformStream stream) {
-        writer.scheduleWithFixedDelay(periodicWrite(), 100L, 100L, MILLISECONDS);
+    public OracleChangeWriter(PlatformStream stream, ExecutorManager executorManager) {
         this.stream = stream;
+        this.executorManager = executorManager;
+        this.running = new AtomicBoolean(true);
+        CompletableFuture.runAsync(this::periodicWrite, executorManager.get());
     }
 
     @Override
@@ -62,18 +69,23 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
                 });
     }
 
-    private Runnable periodicWrite() {
-        return () -> {
+    private void periodicWrite() {
+        while (running.get()) {
             Map<String, Set<String>> changes;
             lock.lock();
             try {
+                batchWrite.await(100, MILLISECONDS);
                 changes = new HashMap<>(changedRows);
-                changedRows.clear();
+            } catch (InterruptedException e) {
+                log.warn("Oracle batch change writer stopped unexpectedly");
+                changes = null;
+                running.set(false);
             } finally {
+                changedRows.clear();
                 lock.unlock();
             }
 
-            Optional.of(changes)
+            Optional.ofNullable(changes)
                     .filter(c -> !c.isEmpty())
                     .map(Map::entrySet)
                     .map(Collection::stream)
@@ -81,7 +93,7 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
                     .map(JsonObjectBuilder::build)
                     .map(this::toPayload)
                     .ifPresent(stream::load);
-        };
+        }
     }
 
     private JsonObjectBuilder reduceEntries(Stream<Entry<String, Set<String>>> s) {
@@ -123,13 +135,14 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
     }
 
     public CompletableFuture<StreamStats> end() {
-        writer.shutdownNow();
+        running.set(false);
+        lock.lock();
         try {
-            writer.awaitTermination(30L, SECONDS);
-            writer.shutdownNow();
-        } catch (InterruptedException e) {
-            log.warn("Could not shutdown background change writer");
+            batchWrite.signalAll();
+        } finally {
+            lock.unlock();
         }
+
         return stream.end();
     }
 
