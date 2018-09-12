@@ -1,10 +1,9 @@
 package com.leo.sdk.aws.s3;
 
 import com.amazonaws.services.s3.transfer.Upload;
-import com.leo.sdk.AsyncPayloadWriter;
+import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.PayloadIdentifier;
 import com.leo.sdk.StreamStats;
-import com.leo.sdk.TransferStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,17 +13,12 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
-import java.util.stream.Stream;
 
-import static com.leo.sdk.TransferStyle.STORAGE;
 import static java.time.ZoneOffset.UTC;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
-public final class S3Writer implements AsyncPayloadWriter {
+public final class S3Writer {
     private static final Logger log = LoggerFactory.getLogger(S3Writer.class);
 
     private static final DateTimeFormatter eidFormat = DateTimeFormatter
@@ -32,43 +26,29 @@ public final class S3Writer implements AsyncPayloadWriter {
             .withZone(UTC);
 
     private final S3TransferManager transferManager;
+    private final ExecutorManager executorManager;
     private final S3Results resultsProcessor;
-    private final ExecutorService asyncWrite = Executors.newFixedThreadPool(8);
     private final AtomicLong fileCount = new AtomicLong();
 
     @Inject
-    public S3Writer(S3TransferManager transferManager, S3Results resultsProcessor) {
+    public S3Writer(S3TransferManager transferManager, ExecutorManager executorManager, S3Results resultsProcessor) {
         this.transferManager = transferManager;
+        this.executorManager = executorManager;
         this.resultsProcessor = resultsProcessor;
 
     }
 
-    @Override
     public void write(PayloadIdentifier payload) {
         CompletableFuture
-                .supplyAsync(() -> addRecord(payload), asyncWrite)
+                .supplyAsync(() -> addRecord(payload), executorManager.get())
                 .whenComplete(processResult());
     }
 
-    @Override
     public StreamStats end() {
         log.info("Stopping S3 writer");
-        asyncWrite.shutdown();
-        try {
-            if (!asyncWrite.awaitTermination(4L, MINUTES)) {
-                asyncWrite.shutdownNow();
-            }
-            transferManager.end();
-            log.info("Stopped S3 writer");
-        } catch (InterruptedException e) {
-            log.warn("Could not shutdown S3 async writer pool");
-        }
+        transferManager.end();
+        log.info("Stopped S3 writer");
         return getStats();
-    }
-
-    @Override
-    public TransferStyle style() {
-        return STORAGE;
     }
 
     private Upload addRecord(PayloadIdentifier id) {
@@ -103,15 +83,15 @@ public final class S3Writer implements AsyncPayloadWriter {
     private StreamStats getStats() {
         return new StreamStats() {
             @Override
-            public Stream<String> successIds() {
+            public Long successes() {
 //                return resultsProcessor.successes();
-                return Stream.empty();
+                return 0L;
             }
 
             @Override
-            public Stream<String> failedIds() {
+            public Long failures() {
 //                return resultsProcessor.failures();
-                return Stream.empty();
+                return 0L;
             }
 
             @Override

@@ -13,5 +13,9 @@ public interface EventPayload {
         return Instant.now();
     }
 
+    default StreamCorrelation streamCorrelation() {
+        return null;
+    }
+
     JsonObject payload();
 }

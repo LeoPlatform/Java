@@ -16,8 +16,9 @@ import dagger.BindsInstance;
 import dagger.Component;
 
 import javax.inject.Named;
-import java.util.List;
+import javax.inject.Singleton;
 
+@Singleton
 @Component(modules = {AWSModule.class, SDKModule.class})
 public interface AWSPlatform {
     PlatformStream platformStream();
@@ -38,17 +39,15 @@ public interface AWSPlatform {
     @Named("Proxy")
     AsyncWorkQueue transferProxy();
 
-    ThresholdMonitor thresholdMonitor();
-
     @Named("Stream")
     AsyncWorkQueue kinesisQueue();
 
     @Named("Storage")
     AsyncWorkQueue s3Queue();
 
-    S3TransferManager s3TransferManager();
+    ThresholdMonitor thresholdMonitor();
 
-    List<AsyncWorkQueue> asyncWorkQueues();
+    S3TransferManager s3TransferManager();
 
     CompressionWriter kinesisCompression();
 

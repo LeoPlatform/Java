@@ -44,7 +44,7 @@ public class ExecutorManager {
     public void add(Runnable r) {
         if (type == SuppliedType.USER_SUPPLIED) {
             externalService.execute(r);
-        } else {
+        } else if (!internalService.isShutdown()) {
             internalService.execute(r);
         }
     }

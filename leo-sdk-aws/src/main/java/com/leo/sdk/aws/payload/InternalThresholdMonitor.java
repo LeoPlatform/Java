@@ -1,38 +1,47 @@
 package com.leo.sdk.aws.payload;
 
+import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.config.ConnectorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.math.BigDecimal;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+@Singleton
 public class InternalThresholdMonitor implements ThresholdMonitor {
     private static final Logger log = LoggerFactory.getLogger(InternalThresholdMonitor.class);
 
     private final long maxBytesPerSecond;
     private final BigDecimal warningThreshold;
+    private final ExecutorManager executorManager;
+    private final AtomicBoolean running;
+    private final Lock lock = new ReentrantLock();
+    private final Condition thresholdCheck = lock.newCondition();
     private final AtomicLong currentLevel = new AtomicLong();
     private final AtomicBoolean failover = new AtomicBoolean(false);
-    private final ScheduledExecutorService monitor;
 
     @Inject
-    public InternalThresholdMonitor(ConnectorConfig config) {
-        maxBytesPerSecond = config.longValueOrElse("Stream.BytesPerSecondFailover", 500000000L);
+    public InternalThresholdMonitor(ConnectorConfig config, ExecutorManager executorManager) {
+        maxBytesPerSecond = config.longValueOrElse("Stream.BytesPerSecondFailover", 50000L);
         warningThreshold = new BigDecimal(maxBytesPerSecond)
                 .multiply(new BigDecimal(".8"))
                 .setScale(0, HALF_UP);
-        monitor = Executors.newScheduledThreadPool(2);
+        this.executorManager = executorManager;
+        this.running = new AtomicBoolean(true);
         if (maxBytesPerSecond > 0) {
-            monitor.scheduleWithFixedDelay(thresholdCheck(), 1, 1, SECONDS);
+            CompletableFuture.runAsync(this::checkThresholds, executorManager.get());
         }
     }
 
@@ -48,13 +57,12 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
 
     @Override
     public void end() {
-        monitor.shutdown();
+        running.set(false);
+        lock.lock();
         try {
-            if (!monitor.awaitTermination(1L, SECONDS)) {
-                monitor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            log.warn("Could not shutdown threshold monitor");
+            thresholdCheck.signalAll();
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -66,35 +74,55 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
         return currentLevel.get() > maxBytesPerSecond;
     }
 
-    private Runnable thresholdCheck() {
-        return () -> {
+    private void checkThresholds() {
+        do {
             if (wasOverThreshold()) {
                 boolean wasFailover = failover.getAndSet(true);
                 if (!wasFailover) {
                     log.warn("Bytes per second exceeded {}: failover enabled", maxBytesPerSecond);
                 }
             } else {
-                monitor.schedule(clearThresholdCheck(), 10, SECONDS);
+                CompletableFuture.runAsync(this::delayedClearCheck, executorManager.get());
                 BigDecimal level = new BigDecimal(currentLevel.get());
                 if (level.compareTo(warningThreshold) > 0) {
-                    BigDecimal percentageOfThreshold = level
-                            .divide(new BigDecimal(maxBytesPerSecond), HALF_EVEN)
-                            .movePointRight(2)
-                            .setScale(0, HALF_EVEN);
+                    BigDecimal percentageOfThreshold = percentageOfThreshold(level);
                     log.warn("Bytes per second are currently {}% of your failover threshold", percentageOfThreshold);
                 }
             }
-        };
+
+            lock.lock();
+            try {
+                thresholdCheck.await(1, SECONDS);
+            } catch (InterruptedException i) {
+                running.set(false);
+                log.info("Threshold monitor stopped");
+            } finally {
+                lock.unlock();
+            }
+        } while (running.get());
     }
 
-    private Runnable clearThresholdCheck() {
-        return () -> {
-            if (failover.get() && isOverThreshold()) {
+    private BigDecimal percentageOfThreshold(BigDecimal level) {
+        return level
+                .divide(new BigDecimal(maxBytesPerSecond), HALF_EVEN)
+                .movePointRight(2)
+                .setScale(0, HALF_EVEN);
+    }
+
+    private void delayedClearCheck() {
+        lock.lock();
+        try {
+            thresholdCheck.await(10, SECONDS);
+            if (running.get() && failover.get() && isOverThreshold()) {
                 log.warn("Failover remains in place");
             } else if (failover.get()) {
                 failover.set(false);
                 log.info("Cleared failover");
             }
-        };
+        } catch (InterruptedException i) {
+            running.set(false);
+        } finally {
+            lock.unlock();
+        }
     }
 }

@@ -1,130 +1,193 @@
 package com.leo.sdk.aws.kinesis;
 
 import com.leo.sdk.AsyncWorkQueue;
+import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.TransferStyle;
 import com.leo.sdk.aws.payload.CompressionWriter;
-import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.config.ConnectorConfig;
 import com.leo.sdk.payload.EventPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import java.time.Duration;
+import javax.inject.Singleton;
 import java.util.LinkedHashSet;
-import java.util.Queue;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Stream;
 
 import static com.leo.sdk.TransferStyle.STREAM;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
+@Singleton
 public final class KinesisQueue implements AsyncWorkQueue {
-
     private static final Logger log = LoggerFactory.getLogger(KinesisQueue.class);
-    private final TransferStyle style = STREAM;
+
     private final long maxBatchAge;
-    private final LoadingBot bot;
-    private final long maxBatchRecords;
-    private final Queue<EventPayload> payloads = new ConcurrentLinkedQueue<>();
-    private final Lock lock = new ReentrantLock();
-    private final Condition sendNow = lock.newCondition();
-    private final AtomicLong lastWritten;
-    private final ScheduledExecutorService asyncLoad = Executors.newSingleThreadScheduledExecutor();
+    private final int maxBatchRecords;
+    private final ExecutorManager executorManager;
     private final CompressionWriter compression;
+    private final KinesisProducerWriter writer;
+    private final BlockingQueue<EventPayload> payloads = new LinkedBlockingQueue<>();
+    private final List<CompletableFuture<Void>> pendingWrites = new LinkedList<>();
+    private final AtomicBoolean running;
+    private final Lock lock = new ReentrantLock();
+    private final Condition batchSend = lock.newCondition();
 
     @Inject
-    public KinesisQueue(ConnectorConfig config, CompressionWriter compression, LoadingBot bot) {
-        this.bot = bot;
-        this.compression = compression;
+    public KinesisQueue(ConnectorConfig config, ExecutorManager executorManager,
+                        CompressionWriter compression, KinesisProducerWriter writer) {
         maxBatchAge = config.longValueOrElse("Stream.MaxBatchAge", 400L);
-        lastWritten = new AtomicLong(System.currentTimeMillis());
-        asyncLoad.scheduleWithFixedDelay(checkThresholds(), 100L, maxBatchAge, MILLISECONDS);
-        maxBatchRecords = config.longValueOrElse("Stream.MaxBatchRecords", 1000L);
+        maxBatchRecords = config.intValueOrElse("Stream.MaxBatchRecords", 1000);
+        this.executorManager = executorManager;
+        this.compression = compression;
+        this.writer = writer;
+        running = new AtomicBoolean(true);
+        pendingWrites.add(CompletableFuture.runAsync(this::asyncBatchSend, executorManager.get()));
     }
 
     @Override
     public void addEntity(EventPayload entity) {
-        payloads.add(entity);
-
-//        CompletableFuture
-//                .supplyAsync(() -> compression.compress(entity), asyncCompress)
-//                .thenApply(byteBuffer -> new PayloadIdentifier(entity, byteBuffer))
-//                .thenAccept(kinesisWriter::write);
-    }
-
-    private Runnable checkThresholds() {
-        return () -> {
-            if (maxAgeReached() || maxRecordsReached()) {
-                asyncLoad.submit(this::sendToKinesis);
+        if (running.get()) {
+            add(entity);
+            if (exceedsMaxRecords()) {
+                signalBatch();
             }
-        };
-    }
-
-    private Runnable sendToKinesis() {
-        return () -> {
-            Set<EventPayload> toSend = new LinkedHashSet<>();
-            while (toSend.size() <= maxBatchRecords && !payloads.isEmpty()) {
-                toSend.add(payloads.remove());
-            }
-            if (!toSend.isEmpty()) {
-                compression.compress(toSend);
-            }
-        };
+        } else {
+            log.warn("Attempt to add kinesis payload to a stopped queue");
+        }
     }
 
     @Override
     public StreamStats end() {
-        asyncLoad.shutdown();
+        running.set(false);
+        signalBatch();
+        sendAll();
+        completePendingTasks();
+        return writer.end();
+    }
+
+    private void add(EventPayload entity) {
+        lock.lock();
         try {
-            if (!asyncLoad.awaitTermination(30L, SECONDS)) {
-                asyncLoad.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            log.warn("Could not shutdown async compression pool");
-            throw new IllegalStateException("Unable to shutdown Kinesis writers", e);
+            payloads.add(entity);
+        } finally {
+            lock.unlock();
         }
-        return emptyStats();
+    }
+
+    private void asyncBatchSend() {
+        while (running.get()) {
+            lock.lock();
+            try {
+                batchSend.await(maxBatchAge, MILLISECONDS);
+            } catch (InterruptedException i) {
+                running.set(false);
+                log.info("Kinesis queue stopped with {} pending", payloads.size());
+            } finally {
+                lock.unlock();
+            }
+            sendBatch();
+        }
+    }
+
+    private void sendBatch() {
+        do {
+            send();
+        } while (exceedsMaxRecords());
+    }
+
+    private void sendAll() {
+        while (!payloads.isEmpty()) {
+            send();
+        }
+    }
+
+    private void completePendingTasks() {
+        removeCompleted();
+        lock.lock();
+        try {
+            long inFlight = pendingWrites.parallelStream()
+                    .filter(w -> !w.isDone())
+                    .count();
+            log.info("Waiting for {} kinesis background task{} to complete", inFlight, inFlight == 1 ? "" : "s");
+        } finally {
+            lock.unlock();
+        }
+        while (!pendingWrites.isEmpty()) {
+            lock.lock();
+            try {
+                batchSend.await(100, MILLISECONDS);
+            } catch (InterruptedException i) {
+                log.warn("Stopped with incomplete pending Kinesis batch tasks");
+                pendingWrites.clear();
+            } finally {
+                lock.unlock();
+            }
+            removeCompleted();
+        }
+    }
+
+    private void send() {
+        Set<EventPayload> toSend = drainToSet();
+        if (!toSend.isEmpty()) {
+            lock.lock();
+            try {
+                CompletableFuture<Void> cf = CompletableFuture
+                        .supplyAsync(this::drainToSet, executorManager.get())
+                        .thenApplyAsync(compression::compress)
+                        .thenAcceptAsync(writer::write)
+                        .thenRunAsync(this::removeCompleted);
+                pendingWrites.add(cf);
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
+    private Set<EventPayload> drainToSet() {
+        Set<EventPayload> toSend = new LinkedHashSet<>();
+        lock.lock();
+        try {
+            payloads.drainTo(toSend, maxBatchRecords);
+        } finally {
+            lock.unlock();
+        }
+        return toSend;
+    }
+
+    private void signalBatch() {
+        lock.lock();
+        try {
+            batchSend.signalAll();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void removeCompleted() {
+        lock.lock();
+        try {
+            pendingWrites.removeIf(CompletableFuture::isDone);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     public TransferStyle style() {
-        return style;
+        return STREAM;
     }
 
-    private boolean maxAgeReached() {
-        return System.currentTimeMillis() - lastWritten.get() > maxBatchAge;
-    }
-
-    private boolean maxRecordsReached() {
+    private boolean exceedsMaxRecords() {
         return payloads.size() >= maxBatchRecords;
-    }
-
-    private StreamStats emptyStats() {
-        return new StreamStats() {
-            @Override
-            public Stream<String> successIds() {
-                return Stream.empty();
-            }
-
-            @Override
-            public Stream<String> failedIds() {
-                return Stream.empty();
-            }
-
-            @Override
-            public Duration totalTime() {
-                return Duration.ofMillis(0L);
-            }
-        };
     }
 }

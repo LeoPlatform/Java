@@ -6,98 +6,126 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.kinesis.producer.KinesisProducer;
 import com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration;
 import com.amazonaws.services.kinesis.producer.UserRecordResult;
-import com.leo.sdk.AsyncPayloadWriter;
-import com.leo.sdk.PayloadIdentifier;
+import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.StreamStats;
-import com.leo.sdk.TransferStyle;
 import com.leo.sdk.config.ConnectorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import java.math.BigInteger;
+import javax.inject.Singleton;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.Map.Entry;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.BiConsumer;
-import java.util.stream.Stream;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-import static com.leo.sdk.TransferStyle.STREAM;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public final class KinesisProducerWriter implements AsyncPayloadWriter {
+@Singleton
+public final class KinesisProducerWriter {
     private static final Logger log = LoggerFactory.getLogger(KinesisProducerWriter.class);
-    private static final Random RANDOM = new Random();
-    private final TransferStyle style = STREAM;
     private final KinesisResults resultsProcessor;
     private final KinesisProducer kinesis;
     private final String stream;
-    private final ExecutorService asyncComplete = Executors.newFixedThreadPool(64);
+    private final ExecutorManager executorManager;
+    private final List<CompletableFuture<Void>> pendingWrites = new LinkedList<>();
+    private final Lock lock = new ReentrantLock();
+    private final Condition asyncUpload = lock.newCondition();
 
     @Inject
-    public KinesisProducerWriter(ConnectorConfig config, KinesisResults resultsProcessor) {
+    public KinesisProducerWriter(ConnectorConfig config, ExecutorManager executorManager,
+                                 KinesisResults resultsProcessor) {
         this.stream = config.value("Stream.Name");
-        this.resultsProcessor = resultsProcessor;
         KinesisProducerConfiguration kCfg = new KinesisProducerConfiguration()
                 .setCredentialsProvider(credentials(config))
                 .setRegion(config.valueOrElse("Region", "us-east-1"))
                 .setAggregationEnabled(false)
-//                .setRecordMaxBufferedTime(config.longValueOrElse("Stream.MaxBatchAge", 200L))
-//                .setRecordMaxBufferedTime(100L)
-//                .setCollectionMaxCount(config.longValueOrElse("Stream.MaxBatchRecords", 500L))
                 .setCollectionMaxCount(1)
-                .setRequestTimeout(60000)
-//                .setMaxConnections(48)
                 .setMetricsNamespace("LEO Java SDK")
-//                .setThreadingModel(POOLED)
-//                .setThreadPoolSize(128)
                 .setLogLevel("info");
         this.kinesis = new KinesisProducer(kCfg);
+        this.executorManager = executorManager;
+        this.resultsProcessor = resultsProcessor;
     }
 
-    @Override
-    public void write(PayloadIdentifier payload) {
-        CompletableFuture
-                .supplyAsync(() -> addRecord(payload), asyncComplete)
-                .whenComplete(processResult());
+    void write(ByteBuffer payload) {
+        lock.lock();
+        try {
+            CompletableFuture<Void> cf = CompletableFuture
+                    .supplyAsync(() -> addRecord(payload), executorManager.get())
+                    .thenAcceptAsync(resultsProcessor::add)
+                    .thenRunAsync(this::removeCompleted);
+            pendingWrites.add(cf);
+        } finally {
+            lock.unlock();
+        }
     }
 
-    @Override
-    public StreamStats end() {
-        log.info("Stopping Kinesis writer");
-        asyncComplete.shutdown();
+    private UserRecordResult addRecord(ByteBuffer payload) {
+        try {
+            return kinesis.addUserRecord(stream, "0", payload).get();
+        } catch (Exception e) {
+            resultsProcessor.addFailure(e);
+            return null;
+        }
+    }
+
+    StreamStats end() {
+        completePendingTasks();
+
         try {
             log.info("Flushing Kinesis pipeline");
             kinesis.flushSync();
-            if (!asyncComplete.awaitTermination(4L, MINUTES)) {
-                asyncComplete.shutdownNow();
-            }
+        } catch (Exception e) {
+            log.warn("Unable to flush kinesis pipeline: {}", e.getMessage());
+        }
+        try {
+            log.info("Stopping Kinesis writer ({} outstanding)", kinesis.getOutstandingRecordsCount());
             kinesis.destroy();
             log.info("Stopped Kinesis writer");
-        } catch (InterruptedException e) {
-            log.warn("Could not shutdown async writer pool");
+        } catch (Exception e) {
+            log.warn("Unable to stop Kinesis writer: {}", e.getMessage());
         }
         return getStats();
     }
 
-    @Override
-    public TransferStyle style() {
-        return style;
+    private void completePendingTasks() {
+        while (!pendingWrites.isEmpty()) {
+            lock.lock();
+            try {
+                asyncUpload.await(100, MILLISECONDS);
+            } catch (InterruptedException i) {
+                log.warn("Stopped Kinesis upload manager with incomplete pending tasks");
+                pendingWrites.clear();
+            } finally {
+                lock.unlock();
+            }
+            removeCompleted();
+        }
+        lock.lock();
+        try {
+            long inFlight = pendingWrites.parallelStream()
+                    .map(CompletableFuture::join)
+                    .count();
+            log.info("Waited for {} Kinesis upload{} to complete", inFlight, inFlight == 1 ? "" : "s");
+        } finally {
+            lock.unlock();
+        }
     }
 
-    private Entry<String, UserRecordResult> addRecord(PayloadIdentifier payload) {
+    private void removeCompleted() {
+        lock.lock();
         try {
-            String hashKey = new BigInteger(128, RANDOM).toString(10);
-            UserRecordResult result = kinesis.addUserRecord(stream, "0", hashKey, payload.getPayload()).get();
-            return new SimpleImmutableEntry<>(payload.getId(), result);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
+            pendingWrites.removeIf(CompletableFuture::isDone);
+            asyncUpload.signalAll();
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -110,25 +138,15 @@ public final class KinesisProducerWriter implements AsyncPayloadWriter {
                 .orElse(DefaultAWSCredentialsProviderChain.getInstance());
     }
 
-    private BiConsumer<Entry<String, UserRecordResult>, Throwable> processResult() {
-        return (result, t) -> {
-            if (success(t)) {
-                resultsProcessor.addSuccess(result.getKey(), result.getValue());
-            } else {
-                resultsProcessor.addFailure(result.getKey(), t);
-            }
-        };
-    }
-
     private StreamStats getStats() {
         return new StreamStats() {
             @Override
-            public Stream<String> successIds() {
+            public Long successes() {
                 return resultsProcessor.successes();
             }
 
             @Override
-            public Stream<String> failedIds() {
+            public Long failures() {
                 return resultsProcessor.failures();
             }
 
@@ -137,9 +155,5 @@ public final class KinesisProducerWriter implements AsyncPayloadWriter {
                 return Duration.between(resultsProcessor.start(), Instant.now());
             }
         };
-    }
-
-    private boolean success(Throwable throwable) {
-        return !Optional.ofNullable(throwable).isPresent();
     }
 }

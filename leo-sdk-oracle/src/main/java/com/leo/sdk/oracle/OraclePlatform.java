@@ -6,6 +6,9 @@ import dagger.BindsInstance;
 import dagger.Component;
 import oracle.jdbc.dcn.DatabaseChangeListener;
 
+import javax.inject.Singleton;
+
+@Singleton
 @Component(modules = {OracleModule.class, SDKModule.class})
 public interface OraclePlatform {
 

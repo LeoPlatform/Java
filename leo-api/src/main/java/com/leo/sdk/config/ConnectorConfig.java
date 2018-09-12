@@ -5,7 +5,11 @@ public interface ConnectorConfig {
 
     Long longValue(String key);
 
+    Integer intValue(String key);
+
     String valueOrElse(String key, String orElse);
 
     Long longValueOrElse(String key, Long orElse);
+
+    Integer intValueOrElse(String key, Integer orElse);
 }

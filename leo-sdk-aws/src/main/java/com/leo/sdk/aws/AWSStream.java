@@ -1,6 +1,7 @@
 package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
+import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.payload.EntityPayload;
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Named;
+import javax.inject.Singleton;
 import javax.json.Json;
 import java.time.Duration;
 import java.time.Instant;
@@ -17,20 +19,28 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
+@Singleton
 public final class AWSStream implements PlatformStream {
     private static final Logger log = LoggerFactory.getLogger(AWSStream.class);
+
     private final AsyncWorkQueue transferProxy;
+    private final ExecutorManager executorManager;
     private final AtomicBoolean streaming;
 
     @Inject
-    public AWSStream(@Named("Proxy") AsyncWorkQueue transferProxy) {
+    public AWSStream(@Named("Proxy") AsyncWorkQueue transferProxy, ExecutorManager executorManager) {
         this.transferProxy = transferProxy;
+        this.executorManager = executorManager;
         this.streaming = new AtomicBoolean(true);
     }
 
     @Override
     public void load(EventPayload payload) {
-        transferProxy.addEntity(payload);
+        if (streaming.get()) {
+            transferProxy.addEntity(payload);
+        } else {
+            log.warn("Attempt to load payload on a closed stream");
+        }
     }
 
     @Override
@@ -47,7 +57,11 @@ public final class AWSStream implements PlatformStream {
     public CompletableFuture<StreamStats> end() {
         if (streaming.getAndSet(false)) {
             log.info("Stopping platform stream");
-            return CompletableFuture.supplyAsync(transferProxy::end);
+            return CompletableFuture.supplyAsync(() -> {
+                StreamStats stats = transferProxy.end();
+                executorManager.end();
+                return stats;
+            });
         } else {
             return noStats();
         }
@@ -56,13 +70,13 @@ public final class AWSStream implements PlatformStream {
     private CompletableFuture<StreamStats> noStats() {
         return CompletableFuture.completedFuture(new StreamStats() {
             @Override
-            public Stream<String> successIds() {
-                return Stream.empty();
+            public Long successes() {
+                return 0L;
             }
 
             @Override
-            public Stream<String> failedIds() {
-                return Stream.empty();
+            public Long failures() {
+                return 0L;
             }
 
             @Override

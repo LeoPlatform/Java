@@ -1,12 +1,11 @@
 package com.leo.sdk;
 
 import java.time.Duration;
-import java.util.stream.Stream;
 
 public interface StreamStats {
-    Stream<String> successIds();
+    Long successes();
 
-    Stream<String> failedIds();
+    Long failures();
 
     Duration totalTime();
 }

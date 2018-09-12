@@ -1,6 +1,7 @@
 package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
+import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.kinesis.KinesisQueue;
@@ -17,76 +18,82 @@ import dagger.Module;
 import dagger.Provides;
 
 import javax.inject.Named;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.toList;
+import javax.inject.Singleton;
 
 @Module
 final class AWSModule {
+    @Singleton
     @Provides
-    static PlatformStream providePlatformStream(@Named("Proxy") AsyncWorkQueue transferProxy) {
-        return new AWSStream(transferProxy);
+    static PlatformStream providePlatformStream(@Named("Proxy") AsyncWorkQueue transferProxy, ExecutorManager executorManager) {
+        return new AWSStream(transferProxy, executorManager);
     }
 
+    @Singleton
     @Provides
-    static WorkQueues provideWorkQueues(ConnectorConfig config, List<AsyncWorkQueue> asyncQueues) {
-        return new WorkQueues(config, asyncQueues);
+    static WorkQueues provideWorkQueues(ConnectorConfig config, @Named("Stream") AsyncWorkQueue kinesisQueue, @Named("Storage") AsyncWorkQueue s3Queue) {
+        return new WorkQueues(config, kinesisQueue, s3Queue);
     }
 
+    @Singleton
     @Provides
     @Named("Proxy")
     static AsyncWorkQueue provideTransferProxy(WorkQueues workQueues, ThresholdMonitor thresholdMonitor) {
         return new TransferProxy(workQueues, thresholdMonitor);
     }
 
-    @Provides
-    static ThresholdMonitor provideThresholdMonitor(ConnectorConfig config) {
-        return new InternalThresholdMonitor(config);
-    }
-
+    @Singleton
     @Provides
     @Named("Stream")
-    static AsyncWorkQueue provideKinesisQueue(ConnectorConfig config, CompressionWriter compression, LoadingBot bot) {
-        return new KinesisQueue(config, compression, bot);
+    static AsyncWorkQueue provideKinesisQueue(ConnectorConfig config, ExecutorManager executorManager,
+                                              CompressionWriter compression, KinesisProducerWriter writer) {
+        return new KinesisQueue(config, executorManager, compression, writer);
     }
 
+    @Singleton
     @Provides
     @Named("Storage")
-    static AsyncWorkQueue provideS3Queue(CompressionWriter compression, S3Writer s3Writer) {
-        return new S3Queue(compression, s3Writer);
+    static AsyncWorkQueue provideS3Queue(ConnectorConfig config, ExecutorManager executorManager,
+                                         CompressionWriter compression, S3Writer s3Writer) {
+        return new S3Queue(config, executorManager, compression, s3Writer);
     }
 
-    @Named("Storage")
+    @Singleton
+    @Provides
+    static ThresholdMonitor provideThresholdMonitor(ConnectorConfig config, ExecutorManager executorManager) {
+        return new InternalThresholdMonitor(config, executorManager);
+    }
+
+    @Singleton
+    @Provides
     static S3TransferManager provideS3TransferManager(ConnectorConfig config) {
         return new S3TransferManager(config);
     }
 
-    @Provides
-    static List<AsyncWorkQueue> provideAsyncWorkQueues(@Named("Stream") AsyncWorkQueue kinesisQueue, @Named("Storage") AsyncWorkQueue s3Queue) {
-        return Stream.of(kinesisQueue, s3Queue).collect(toList());
-    }
-
+    @Singleton
     @Provides
     static CompressionWriter provideKinesisCompression(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
         return new JSDKGzipWriter(streamJson, thresholdMonitor);
     }
 
+    @Singleton
     @Provides
     static StreamJsonPayload provideStreamJsonPayload(LoadingBot bot) {
-        return new JacksonNewlinePayload(bot);
+        return new JacksonPayload(bot);
     }
 
+    @Singleton
     @Provides
-    static KinesisProducerWriter provideKinesisWrite(ConnectorConfig config, KinesisResults resultsProcessor) {
-        return new KinesisProducerWriter(config, resultsProcessor);
+    static KinesisProducerWriter provideKinesisWrite(ConnectorConfig config, ExecutorManager executorManager, KinesisResults resultsProcessor) {
+        return new KinesisProducerWriter(config, executorManager, resultsProcessor);
     }
 
+    @Singleton
     @Provides
     static KinesisResults provideKinesisResults() {
         return new KinesisResults();
     }
 
+    @Singleton
     @Provides
     static S3Results provideS3Results() {
         return new S3Results();

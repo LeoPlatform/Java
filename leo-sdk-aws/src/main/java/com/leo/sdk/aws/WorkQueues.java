@@ -7,10 +7,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Named;
 import javax.inject.Singleton;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static com.leo.sdk.TransferStyle.STORAGE;
 import static com.leo.sdk.TransferStyle.fromType;
@@ -27,9 +28,10 @@ public final class WorkQueues {
     private final Map<TransferStyle, AsyncWorkQueue> transferQueue;
 
     @Inject
-    public WorkQueues(ConnectorConfig config, List<AsyncWorkQueue> asyncQueues) {
+    public WorkQueues(ConnectorConfig config,
+                      @Named("Stream") AsyncWorkQueue kinesisQueue, @Named("Storage") AsyncWorkQueue s3Queue) {
         configuredStyle = fromType(config.value("Writer"));
-        transferQueue = asyncQueues.stream()
+        transferQueue = Stream.of(kinesisQueue, s3Queue)
                 .collect(collectingAndThen(
                         toMap(AsyncWorkQueue::style, identity()),
                         Collections::unmodifiableMap));
@@ -49,11 +51,11 @@ public final class WorkQueues {
         throw new IllegalArgumentException("Unable to recognize this transfer style: " + configuredStyle);
     }
 
-    public AsyncWorkQueue workQueue() {
+    AsyncWorkQueue workQueue() {
         return transferQueue.get(configuredStyle);
     }
 
-    public AsyncWorkQueue failoverQueue() {
+    AsyncWorkQueue failoverQueue() {
         return transferQueue.get(failoverStyle);
     }
 }

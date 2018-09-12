@@ -4,10 +4,12 @@ import com.amazonaws.services.s3.transfer.model.UploadResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Singleton;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Stream;
 
+@Singleton
 public final class S3Results {
     private static final Logger log = LoggerFactory.getLogger(S3Results.class);
 
