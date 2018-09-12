@@ -142,8 +142,7 @@ public final class KinesisQueue implements AsyncWorkQueue {
             lock.lock();
             try {
                 CompletableFuture<Void> cf = CompletableFuture
-                        .supplyAsync(this::drainToSet, executorManager.get())
-                        .thenApplyAsync(compression::compress)
+                        .supplyAsync(() -> compression.compress(toSend), executorManager.get())
                         .thenAcceptAsync(writer::write)
                         .thenRunAsync(this::removeCompleted);
                 pendingWrites.add(cf);

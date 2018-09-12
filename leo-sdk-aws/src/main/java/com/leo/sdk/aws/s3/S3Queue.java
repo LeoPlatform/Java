@@ -110,8 +110,7 @@ public final class S3Queue implements AsyncWorkQueue {
             lock.lock();
             try {
                 CompletableFuture<Void> cf = CompletableFuture
-                        .supplyAsync(this::drainToSet, executorManager.get())
-                        .thenApplyAsync(compression::compress)
+                        .supplyAsync(() -> compression.compress(toSend), executorManager.get())
                         .thenRunAsync(this::removeCompleted);
 //                .thenAccept(s3Writer::write);
                 pendingWrites.add(cf);
