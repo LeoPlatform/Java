@@ -21,6 +21,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -54,13 +55,14 @@ public final class KinesisProducerWriter {
         this.resultsProcessor = resultsProcessor;
     }
 
-    void write(ByteBuffer payload) {
+    public void write(ByteBuffer payload) {
         lock.lock();
         try {
+            Executor e = executorManager.get();
             CompletableFuture<Void> cf = CompletableFuture
-                    .supplyAsync(() -> addRecord(payload), executorManager.get())
-                    .thenAcceptAsync(resultsProcessor::add)
-                    .thenRunAsync(this::removeCompleted);
+                    .supplyAsync(() -> addRecord(payload), e)
+                    .thenAcceptAsync(resultsProcessor::add, e)
+                    .thenRunAsync(this::removeCompleted, e);
             pendingWrites.add(cf);
         } finally {
             lock.unlock();

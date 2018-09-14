@@ -10,9 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 import static com.leo.sdk.TransferStyle.PROXY;
 
@@ -41,40 +38,7 @@ public final class TransferProxy implements AsyncWorkQueue {
     @Override
     public StreamStats end() {
         thresholdMonitor.end();
-        CompletableFuture<StreamStats> work = CompletableFuture.supplyAsync(() -> workQueues.workQueue().end());
-        CompletableFuture<StreamStats> fail = CompletableFuture.supplyAsync(() -> workQueues.failoverQueue().end());
-        CompletableFuture.allOf(work, fail)
-                .join();
-
-        try {
-            StreamStats ss = work.get();
-            StreamStats ssFailover = fail.get();
-            Long succ = ss.successes() + ssFailover.successes();
-            Long fails = ss.failures() + ssFailover.failures();
-            Duration dur = ss.totalTime().plusMillis(ssFailover.totalTime().toMillis());
-            return stats(succ, fails, dur);
-        } catch (ExecutionException | InterruptedException e) {
-            return stats(0L, 0L, Duration.ofMillis(0L));
-        }
-    }
-
-    private StreamStats stats(Long successes, Long failures, Duration dur) {
-        return new StreamStats() {
-            @Override
-            public Long successes() {
-                return successes;
-            }
-
-            @Override
-            public Long failures() {
-                return failures;
-            }
-
-            @Override
-            public Duration totalTime() {
-                return dur;
-            }
-        };
+        return workQueues.endAll();
     }
 
     @Override

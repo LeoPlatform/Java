@@ -52,9 +52,9 @@ final class AWSModule {
     @Singleton
     @Provides
     @Named("Storage")
-    static AsyncWorkQueue provideS3Queue(ConnectorConfig config, ExecutorManager executorManager,
+    static AsyncWorkQueue provideS3Queue(ExecutorManager executorManager,
                                          CompressionWriter compression, S3Writer s3Writer) {
-        return new S3Queue(config, executorManager, compression, s3Writer);
+        return new S3Queue(executorManager, compression, s3Writer);
     }
 
     @Singleton
@@ -95,7 +95,7 @@ final class AWSModule {
 
     @Singleton
     @Provides
-    static S3Results provideS3Results() {
-        return new S3Results();
+    static S3Results provideS3Results(KinesisProducerWriter kinesis) {
+        return new S3Results(kinesis);
     }
 }

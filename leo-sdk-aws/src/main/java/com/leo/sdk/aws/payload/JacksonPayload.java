@@ -10,6 +10,7 @@ import com.leo.sdk.payload.StreamJsonPayload;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS;
 
@@ -25,12 +26,24 @@ public final class JacksonPayload implements StreamJsonPayload {
 
     @Override
     public String toJsonString(EventPayload eventPayload) {
+        EntityPayload entityPayload = new EntityPayload(eventPayload, bot);
+        return toJsonString(entityPayload);
+    }
+
+    @Override
+    public String toJsonString(EntityPayload entityPayload) {
         try {
-            EntityPayload entityPayload = new EntityPayload(eventPayload, bot);
             return mapper.writeValueAsString(entityPayload);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to create JSON payload");
         }
+    }
+
+    @Override
+    public EntityPayload toEntity(EventPayload eventPayload) {
+        return Optional.ofNullable(eventPayload)
+                .map(p -> new EntityPayload(p, bot))
+                .orElseThrow(() -> new IllegalArgumentException("Invalid event payload"));
     }
 
     private static ObjectMapper buildMapper() {

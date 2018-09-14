@@ -1,7 +1,7 @@
 package com.leo.sdk.aws.payload;
 
-import com.leo.sdk.payload.EventPayload;
-import com.leo.sdk.payload.StreamJsonPayload;
+import com.leo.sdk.PayloadIdentifier;
+import com.leo.sdk.payload.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,10 +12,14 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
 
 @Singleton
 public final class JSDKGzipWriter implements CompressionWriter {
@@ -32,20 +36,62 @@ public final class JSDKGzipWriter implements CompressionWriter {
     }
 
     @Override
-    public ByteBuffer compress(Collection<EventPayload> payloads) {
-        if (payloads.isEmpty()) {
-            return ByteBuffer.wrap(new byte[0]);
-        }
-        String inflatedPayload = payloads.stream()
-                .map(streamJson::toJsonString)
-                .collect(Collectors.joining(NEWLINE));
+    public PayloadIdentifier compressWithNewlines(Collection<EventPayload> payloads) {
+        List<EntityPayload> entities = toEntityPayloads(payloads);
+        String inflatedPayload = inflatedPayload(entities);
         byte[] compressedPayload = toGzip(inflatedPayload);
         String plural = payloads.size() == 1 ? "" : "s";
         int inflatedLen = inflatedPayload.getBytes(UTF_8).length;
         int compressedLen = compressedPayload.length;
         log.info("Compression of {} payload{} from {} to {} bytes", payloads.size(), plural, inflatedLen, compressedLen);
         thresholdMonitor.addBytes(compressedLen);
-        return ByteBuffer.wrap(compressedPayload);
+        EntityPayload first = entities.iterator().next();
+        return new PayloadIdentifier(first, ByteBuffer.wrap(compressedPayload));
+    }
+
+    private String inflatedPayload(List<EntityPayload> entities) {
+        return entities.parallelStream()
+                .map(streamJson::toJsonString)
+                .collect(Collectors.joining(NEWLINE));
+    }
+
+    @Override
+    public FileSegment compressWithOffsets(Collection<EventPayload> payloads) {
+        List<EntityPayload> entities = toEntityPayloads(payloads);
+        String inflatedPayload = inflatedPayload(entities);
+        byte[] compressedPayload = toGzip(inflatedPayload);
+
+        String queue = getQueue(entities);
+        Long start = 0L;
+        Long records = (long) entities.size();
+        Long end = records - 1;
+        Long size = (long) inflatedPayload.getBytes(UTF_8).length;
+        Long offset = 0L;
+        Long gzipSize = (long) compressedPayload.length;
+        Long gzipOffset = 0L;
+
+        StorageEventOffset seo = new StorageEventOffset(queue, start, end, size, offset, records, gzipSize, gzipOffset);
+        return new FileSegment(seo, compressedPayload);
+    }
+
+    private String getQueue(List<EntityPayload> entities) {
+        return entities.stream()
+                .map(EntityPayload::getEvent)
+                .filter(Objects::nonNull)
+                .findAny()
+                .orElseThrow(() -> new IllegalArgumentException("No queue found in payload"));
+    }
+
+    private List<EntityPayload> toEntityPayloads(Collection<EventPayload> payloads) {
+        return validate(payloads).stream()
+                .map(streamJson::toEntity)
+                .collect(toList());
+    }
+
+    private Collection<EventPayload> validate(Collection<EventPayload> payloads) {
+        return Optional.ofNullable(payloads)
+                .filter(p -> !p.isEmpty())
+                .orElseThrow(() -> new IllegalArgumentException("Missing payload"));
     }
 
     private byte[] toGzip(String json) {

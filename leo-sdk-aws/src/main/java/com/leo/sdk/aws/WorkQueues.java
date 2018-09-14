@@ -1,6 +1,7 @@
 package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
+import com.leo.sdk.StreamStats;
 import com.leo.sdk.TransferStyle;
 import com.leo.sdk.config.ConnectorConfig;
 import org.slf4j.Logger;
@@ -9,12 +10,12 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.leo.sdk.TransferStyle.STORAGE;
-import static com.leo.sdk.TransferStyle.fromType;
+import static com.leo.sdk.TransferStyle.*;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toMap;
@@ -58,4 +59,52 @@ public final class WorkQueues {
     AsyncWorkQueue failoverQueue() {
         return transferQueue.get(failoverStyle);
     }
+
+    StreamStats endAll() {
+        StreamStats storageStats = transferQueue.values().stream()
+                .filter(q -> q.style() == STORAGE)
+                .map(AsyncWorkQueue::end)
+                .findFirst()
+                .orElse(emptyStats());
+
+        StreamStats streamStats = transferQueue.values().stream()
+                .filter(q -> q.style() == STREAM)
+                .map(AsyncWorkQueue::end)
+                .findFirst()
+                .orElse(emptyStats());
+        return Stream.of(storageStats, streamStats)
+                .reduce(this::combineStats)
+                .orElse(emptyStats());
+    }
+
+    private StreamStats combineStats(StreamStats ss1, StreamStats ss2) {
+        Long succ = ss1.successes() + ss2.successes();
+        Long fails = ss1.failures() + ss2.failures();
+        Duration dur = ss1.totalTime().plusMillis(ss2.totalTime().toMillis());
+        return stats(succ, fails, dur);
+    }
+
+    private StreamStats emptyStats() {
+        return stats(0L, 0L, Duration.ofMillis(0));
+    }
+
+    private StreamStats stats(Long succ, Long fails, Duration dur) {
+        return new StreamStats() {
+            @Override
+            public Long successes() {
+                return succ;
+            }
+
+            @Override
+            public Long failures() {
+                return fails;
+            }
+
+            @Override
+            public Duration totalTime() {
+                return dur;
+            }
+        };
+    }
+
 }

@@ -5,7 +5,6 @@ import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.TransferStyle;
 import com.leo.sdk.aws.payload.CompressionWriter;
-import com.leo.sdk.config.ConnectorConfig;
 import com.leo.sdk.payload.EventPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
@@ -31,8 +31,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public final class S3Queue implements AsyncWorkQueue {
     private static final Logger log = LoggerFactory.getLogger(S3Queue.class);
 
-    private final long maxBatchAge;
-    private final int maxBatchRecords;
+    private final int maxBatchRecords = 1000;
     private final CompressionWriter compression;
     private final ExecutorManager executorManager;
     private final S3Writer s3Writer;
@@ -43,10 +42,7 @@ public final class S3Queue implements AsyncWorkQueue {
     private final Condition batchSend = lock.newCondition();
 
     @Inject
-    public S3Queue(ConnectorConfig config, ExecutorManager executorManager,
-                   CompressionWriter compression, S3Writer s3Writer) {
-        maxBatchAge = config.longValueOrElse("Storage.MaxBatchAge", 4000L);
-        maxBatchRecords = config.intValueOrElse("Storage.MaxBatchRecords", 6000);
+    public S3Queue(ExecutorManager executorManager, CompressionWriter compression, S3Writer s3Writer) {
         this.compression = compression;
         this.executorManager = executorManager;
         this.s3Writer = s3Writer;
@@ -79,7 +75,7 @@ public final class S3Queue implements AsyncWorkQueue {
         while (running.get()) {
             lock.lock();
             try {
-                batchSend.await(maxBatchAge, MILLISECONDS);
+                batchSend.await(200L, MILLISECONDS);
             } catch (InterruptedException i) {
                 running.set(false);
                 log.info("S3 queue stopped with {} pending", payloads.size());
@@ -100,19 +96,15 @@ public final class S3Queue implements AsyncWorkQueue {
     }
 
     private void send() {
-//        CompletableFuture
-//                .supplyAsync(() -> compression.compress(Collections.singletonList(entity)), executorManager.get());
-//                .thenApplyAsync(byteBuffer -> new PayloadIdentifier(entity, byteBuffer))
-//                .thenAcceptAsync(s3Writer::write);
-
         Set<EventPayload> toSend = drainToSet();
         if (!toSend.isEmpty()) {
             lock.lock();
             try {
+                Executor e = executorManager.get();
                 CompletableFuture<Void> cf = CompletableFuture
-                        .supplyAsync(() -> compression.compress(toSend), executorManager.get())
-                        .thenRunAsync(this::removeCompleted);
-//                .thenAccept(s3Writer::write);
+                        .supplyAsync(() -> compression.compressWithOffsets(toSend), e)
+                        .thenAcceptAsync(s3Writer::write, e)
+                        .thenRunAsync(this::removeCompleted, e);
                 pendingWrites.add(cf);
             } finally {
                 lock.unlock();

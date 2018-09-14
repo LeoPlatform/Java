@@ -1,94 +1,80 @@
 package com.leo.sdk.aws.s3;
 
 import com.amazonaws.services.s3.transfer.model.UploadResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr353.JSR353Module;
+import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.time.Instant;
-import java.util.*;
-import java.util.stream.Stream;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Singleton
 public final class S3Results {
     private static final Logger log = LoggerFactory.getLogger(S3Results.class);
 
-    private static final int MAX_RESULT_ENTRIES = 10_000;
-    private final Map<String, UploadResult> successes = successMap();
-    private final Map<String, Throwable> failures = failureMap();
+    private final ObjectMapper mapper = buildMapper();
+    private final AtomicLong successes = new AtomicLong();
+    private final AtomicLong failures = new AtomicLong();
     private final Instant start = Instant.now();
+    private final KinesisProducerWriter kinesis;
 
-
-    void addSuccess(String id, UploadResult result) {
-        successes.put(id, result);
-        logSuccess(id, result);
+    @Inject
+    public S3Results(KinesisProducerWriter kinesis) {
+        this.kinesis = kinesis;
     }
 
-    Stream<String> successes() {
-        Set<String> s = new HashSet<>(successes.keySet());
-        successes.clear();
-        return s.parallelStream();
+    void addSuccess(S3Payload payload, UploadResult result) {
+        successes.incrementAndGet();
+        logSuccess(payload.getRecords(), result);
+        byte[] b = toJsonString(payload).getBytes(UTF_8);
+        kinesis.write(ByteBuffer.wrap(b));
     }
 
-    void addFailure(String id, Throwable throwable) {
-        failures.put(id, throwable);
-        logFailure(id, throwable);
+    Long successes() {
+        return successes.get();
     }
 
-    Stream<String> failures() {
-        Set<String> s = new HashSet<>(failures.keySet());
-        failures.clear();
-        return s.parallelStream();
+    void addFailure(String desc, Exception ex) {
+        failures.incrementAndGet();
+        log.error("Could not upload {} to S3: {}", desc, ex);
+    }
+
+    Long failures() {
+        return failures.get();
     }
 
     Instant start() {
         return start;
     }
 
-    private void logSuccess(String id, UploadResult result) {
-//        String succ = Optional.ofNullable(result)
-//                .map(UserRecordResult::isSuccessful)
-//                .filter(s -> s)
-//                .map(s -> "Successfully")
-//                .orElse("Unsuccessfully");
-//        String seq = Optional.ofNullable(result)
-//                .map(UserRecordResult::getSequenceNumber)
-//                .orElse("Unknown");
-//        String shard = Optional.ofNullable(result)
-//                .map(UserRecordResult::getShardId)
-//                .orElse("Unknown");
-//        String att = Optional.ofNullable(result)
-//                .map(UserRecordResult::getAttempts)
-//                .map(List::size)
-//                .map(String::valueOf)
-//                .orElse("Unknown");
-//        String plu = Optional.of(att)
-//                .filter(a -> a.equals("1"))
-//                .map(a -> "")
-//                .orElse("s");
-//        log.info("{} uploaded {} as record {} to Kinesis shard {} in {} attempt{}", succ, id, seq, shard, att, plu);
+    private void logSuccess(Long records, UploadResult result) {
+        String key = Optional.ofNullable(result)
+                .map(UploadResult::getKey)
+                .orElse("Unknown");
+        log.info("Creating Kinesis pointer to {} for {} records", key, records);
     }
 
-    private void logFailure(String id, Throwable throwable) {
-        log.error("Could not upload record {} to Kinesis", id, throwable);
+    public String toJsonString(S3Payload s3Payload) {
+        try {
+            return mapper.writeValueAsString(s3Payload);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to create S3 JSON payload");
+        }
     }
 
-
-    private Map<String, UploadResult> successMap() {
-        return Collections.synchronizedMap(new LinkedHashMap<String, UploadResult>() {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<String, UploadResult> eldest) {
-                return size() > MAX_RESULT_ENTRIES;
-            }
-        });
-    }
-
-    private Map<String, Throwable> failureMap() {
-        return Collections.synchronizedMap(new LinkedHashMap<String, Throwable>() {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<String, Throwable> eldest) {
-                return size() > MAX_RESULT_ENTRIES;
-            }
-        });
+    private static ObjectMapper buildMapper() {
+        return new ObjectMapper()
+                .setSerializationInclusion(ALWAYS)
+                .registerModule(new JSR353Module());
     }
 }

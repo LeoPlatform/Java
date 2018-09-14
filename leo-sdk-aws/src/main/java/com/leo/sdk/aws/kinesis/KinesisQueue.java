@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
@@ -141,10 +142,11 @@ public final class KinesisQueue implements AsyncWorkQueue {
         if (!toSend.isEmpty()) {
             lock.lock();
             try {
+                Executor e = executorManager.get();
                 CompletableFuture<Void> cf = CompletableFuture
-                        .supplyAsync(() -> compression.compress(toSend), executorManager.get())
-                        .thenAcceptAsync(writer::write)
-                        .thenRunAsync(this::removeCompleted);
+                        .supplyAsync(() -> compression.compressWithNewlines(toSend), e)
+                        .thenAcceptAsync(p -> writer.write(p.getPayload()), e)
+                        .thenRunAsync(this::removeCompleted, e);
                 pendingWrites.add(cf);
             } finally {
                 lock.unlock();
