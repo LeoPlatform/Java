@@ -35,9 +35,7 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
     @Inject
     public InternalThresholdMonitor(ConnectorConfig config, ExecutorManager executorManager) {
         maxBytesPerSecond = config.longValueOrElse("Stream.BytesPerSecondFailover", 50000L);
-        warningThreshold = new BigDecimal(maxBytesPerSecond)
-                .multiply(new BigDecimal(".8"))
-                .setScale(0, HALF_UP);
+        warningThreshold = eightyPercentOfMax();
         this.executorManager = executorManager;
         this.running = new AtomicBoolean(true);
         if (maxBytesPerSecond > 0) {
@@ -46,7 +44,7 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
     }
 
     @Override
-    public void addBytes(long bytes) {
+    public void addBytes(Long bytes) {
         currentLevel.addAndGet(bytes);
     }
 
@@ -79,15 +77,11 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
             if (wasOverThreshold()) {
                 boolean wasFailover = failover.getAndSet(true);
                 if (!wasFailover) {
-                    log.warn("Bytes per second exceeded {}: failover enabled", maxBytesPerSecond);
+                    log.info("Exceeded {} bytes/second", maxBytesPerSecond);
+                    log.warn("Failover enabled", maxBytesPerSecond);
                 }
             } else {
                 CompletableFuture.runAsync(this::delayedClearCheck, executorManager.get());
-                BigDecimal level = new BigDecimal(currentLevel.get());
-                if (level.compareTo(warningThreshold) > 0) {
-                    BigDecimal percentageOfThreshold = percentageOfThreshold(level);
-                    log.warn("Bytes per second are currently {}% of your failover threshold", percentageOfThreshold);
-                }
             }
 
             lock.lock();
@@ -110,6 +104,9 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
     }
 
     private void delayedClearCheck() {
+        if (approachingThreshold()) {
+            thresholdWarning();
+        }
         lock.lock();
         try {
             thresholdCheck.await(10, SECONDS);
@@ -124,5 +121,22 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
         } finally {
             lock.unlock();
         }
+    }
+
+    private BigDecimal eightyPercentOfMax() {
+        return new BigDecimal(maxBytesPerSecond)
+                .multiply(new BigDecimal(".8"))
+                .setScale(0, HALF_UP);
+    }
+
+    private boolean approachingThreshold() {
+        BigDecimal level = new BigDecimal(currentLevel.get());
+        return level.compareTo(warningThreshold) > 0;
+    }
+
+    private void thresholdWarning() {
+        BigDecimal level = new BigDecimal(currentLevel.get());
+        BigDecimal percentageOfThreshold = percentageOfThreshold(level);
+        log.warn("Bytes per second are currently {}% of your failover threshold", percentageOfThreshold);
     }
 }

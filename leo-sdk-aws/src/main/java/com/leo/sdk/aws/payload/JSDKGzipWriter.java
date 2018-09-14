@@ -1,6 +1,5 @@
 package com.leo.sdk.aws.payload;
 
-import com.leo.sdk.PayloadIdentifier;
 import com.leo.sdk.payload.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +9,6 @@ import javax.inject.Singleton;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -36,26 +34,6 @@ public final class JSDKGzipWriter implements CompressionWriter {
     }
 
     @Override
-    public PayloadIdentifier compressWithNewlines(Collection<EventPayload> payloads) {
-        List<EntityPayload> entities = toEntityPayloads(payloads);
-        String inflatedPayload = inflatedPayload(entities);
-        byte[] compressedPayload = toGzip(inflatedPayload);
-        String plural = payloads.size() == 1 ? "" : "s";
-        int inflatedLen = inflatedPayload.getBytes(UTF_8).length;
-        int compressedLen = compressedPayload.length;
-        log.info("Compression of {} payload{} from {} to {} bytes", payloads.size(), plural, inflatedLen, compressedLen);
-        thresholdMonitor.addBytes(compressedLen);
-        EntityPayload first = entities.iterator().next();
-        return new PayloadIdentifier(first, ByteBuffer.wrap(compressedPayload));
-    }
-
-    private String inflatedPayload(List<EntityPayload> entities) {
-        return entities.parallelStream()
-                .map(streamJson::toJsonString)
-                .collect(Collectors.joining(NEWLINE));
-    }
-
-    @Override
     public FileSegment compressWithOffsets(Collection<EventPayload> payloads) {
         List<EntityPayload> entities = toEntityPayloads(payloads);
         String inflatedPayload = inflatedPayload(entities);
@@ -70,8 +48,16 @@ public final class JSDKGzipWriter implements CompressionWriter {
         Long gzipSize = (long) compressedPayload.length;
         Long gzipOffset = 0L;
 
+        thresholdMonitor.addBytes(gzipSize);
+
         StorageEventOffset seo = new StorageEventOffset(queue, start, end, size, offset, records, gzipSize, gzipOffset);
         return new FileSegment(seo, compressedPayload);
+    }
+
+    private String inflatedPayload(List<EntityPayload> entities) {
+        return entities.parallelStream()
+                .map(streamJson::toJsonString)
+                .collect(Collectors.joining(NEWLINE));
     }
 
     private String getQueue(List<EntityPayload> entities) {

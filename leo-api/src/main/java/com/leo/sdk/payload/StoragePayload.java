@@ -17,5 +17,7 @@ public interface StoragePayload {
 
     Long getRecords();
 
+    StorageStats getStats();
+
     List<StreamCorrelation> getCorrelations();
 }

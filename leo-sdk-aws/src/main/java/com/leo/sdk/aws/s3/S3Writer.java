@@ -4,9 +4,12 @@ import com.amazonaws.services.s3.transfer.Upload;
 import com.amazonaws.services.s3.transfer.model.UploadResult;
 import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.StreamStats;
+import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.config.ConnectorConfig;
 import com.leo.sdk.payload.FileSegment;
 import com.leo.sdk.payload.StorageEventOffset;
+import com.leo.sdk.payload.StorageStats;
+import com.leo.sdk.payload.StorageUnits;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,10 +18,7 @@ import javax.inject.Singleton;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,6 +45,7 @@ public final class S3Writer {
     private final S3TransferManager transferManager;
     private final ExecutorManager executorManager;
     private final S3Results resultsProcessor;
+    private final LoadingBot bot;
 
     private final Queue<FileSegment> payloads = new LinkedList<>();
     private final AtomicBoolean running;
@@ -53,13 +54,15 @@ public final class S3Writer {
 
     @Inject
     public S3Writer(ConnectorConfig config, S3TransferManager transferManager,
-                    ExecutorManager executorManager, S3Results resultsProcessor) {
+                    ExecutorManager executorManager, S3Results resultsProcessor,
+                    LoadingBot bot) {
         maxBatchAge = config.longValueOrElse("Storage.MaxBatchAge", 4000L);
         maxBatchRecords = config.intValueOrElse("Storage.MaxBatchRecords", 6000);
         maxRecordSize = config.longValueOrElse("Storage.MaxRecordSize", 5017600L);
         this.transferManager = transferManager;
         this.executorManager = executorManager;
         this.resultsProcessor = resultsProcessor;
+        this.bot = bot;
         running = new AtomicBoolean(true);
         CompletableFuture.runAsync(this::asyncBatchSend, executorManager.get());
     }
@@ -180,7 +183,7 @@ public final class S3Writer {
         String queue = offset.getEvent();
         String formattedTime = eidFormat.format(time);
         String fileNumPad = padWithZeros(fileNum);
-        return String.format("bus/%s/z/%s%d-%s.gz", queue, formattedTime, time.toEpochMilli(), fileNumPad);
+        return String.format("bus/%s/%s%d-%s.gz", queue, formattedTime, time.toEpochMilli(), fileNumPad);
     }
 
     private String padWithZeros(long value) {
@@ -205,7 +208,8 @@ public final class S3Writer {
         Long records = segments.stream().map(FileSegment::getOffset).mapToLong(StorageEventOffset::getRecords).sum();
         S3LocationPayload location = new S3LocationPayload(result.getBucketName(), result.getKey());
         List<StorageEventOffset> offsets = accumulateOffsets(segments);
-        return new S3Payload(queue, null, null, location, offsets, gzipSize, size, records);
+        StorageStats stats = new StorageStats(Collections.singletonMap(bot.name(), new StorageUnits(records)));
+        return new S3Payload(queue, null, null, location, offsets, gzipSize, size, records, stats);
     }
 
     private List<StorageEventOffset> accumulateOffsets(Queue<FileSegment> segments) {

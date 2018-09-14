@@ -2,6 +2,7 @@ package com.leo.sdk.aws.s3;
 
 import com.leo.sdk.payload.StorageEventOffset;
 import com.leo.sdk.payload.StoragePayload;
+import com.leo.sdk.payload.StorageStats;
 import com.leo.sdk.payload.StreamCorrelation;
 
 import java.util.Collections;
@@ -17,10 +18,12 @@ public class S3Payload implements StoragePayload {
     private final Long gzipSize;
     private final Long size;
     private final Long records;
+    private final StorageStats stats;
     private final List<StreamCorrelation> correlations = Collections.emptyList();
 
     public S3Payload(String event, String start, String end, S3LocationPayload s3,
-                     List<StorageEventOffset> offsets, Long gzipSize, Long size, Long records) {
+                     List<StorageEventOffset> offsets, Long gzipSize, Long size,
+                     Long records, StorageStats stats) {
         this.event = event;
         this.start = start;
         this.end = end;
@@ -29,6 +32,7 @@ public class S3Payload implements StoragePayload {
         this.gzipSize = gzipSize;
         this.size = size;
         this.records = records;
+        this.stats = stats;
     }
 
     @Override
@@ -71,6 +75,11 @@ public class S3Payload implements StoragePayload {
     }
 
     @Override
+    public StorageStats getStats() {
+        return stats;
+    }
+
+    @Override
     public List<StreamCorrelation> getCorrelations() {
         return correlations;
     }
@@ -100,7 +109,7 @@ public class S3Payload implements StoragePayload {
     @Override
     public String toString() {
         return String
-                .format("S3Payload{event='%s', start=%d, end=%d, s3=%s, offsets=%s, gzipSize=%d, size=%d, records=%d}",
+                .format("S3Payload{event='%s', start=%s, end=%s, s3=%s, offsets=%s, gzipSize=%d, size=%d, records=%d}",
                         event, start, end, s3, offsets, gzipSize, size, records);
     }
 }

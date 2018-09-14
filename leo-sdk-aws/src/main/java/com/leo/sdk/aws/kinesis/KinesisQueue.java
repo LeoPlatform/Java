@@ -7,15 +7,14 @@ import com.leo.sdk.TransferStyle;
 import com.leo.sdk.aws.payload.CompressionWriter;
 import com.leo.sdk.config.ConnectorConfig;
 import com.leo.sdk.payload.EventPayload;
+import com.leo.sdk.payload.FileSegment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.nio.ByteBuffer;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -139,19 +138,25 @@ public final class KinesisQueue implements AsyncWorkQueue {
 
     private void send() {
         Set<EventPayload> toSend = drainToSet();
-        if (!toSend.isEmpty()) {
-            lock.lock();
-            try {
-                Executor e = executorManager.get();
-                CompletableFuture<Void> cf = CompletableFuture
-                        .supplyAsync(() -> compression.compressWithNewlines(toSend), e)
-                        .thenAcceptAsync(p -> writer.write(p.getPayload()), e)
-                        .thenRunAsync(this::removeCompleted, e);
-                pendingWrites.add(cf);
-            } finally {
-                lock.unlock();
-            }
+        Executor e = executorManager.get();
+        CompletableFuture<Void> cf = CompletableFuture
+                .supplyAsync(() -> compression.compressWithOffsets(toSend), e)
+                .thenAcceptAsync(this::toKinesis, e)
+                .thenRunAsync(this::removeCompleted, e);
+        lock.lock();
+        try {
+            pendingWrites.add(cf);
+        } finally {
+            lock.unlock();
         }
+    }
+
+    private void toKinesis(FileSegment segment) {
+        Optional.of(segment)
+                .map(FileSegment::getSegment)
+                .filter(b -> b.length > 0)
+                .map(ByteBuffer::wrap)
+                .ifPresent(writer::write);
     }
 
     private Set<EventPayload> drainToSet() {
