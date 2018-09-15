@@ -36,8 +36,6 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeWriter.class);
 
     private final PlatformStream stream;
-    private final ExecutorManager executorManager;
-    private final List<CompletableFuture<Void>> pendingChanges = new LinkedList<>();
     private final Map<String, Set<String>> changedRows = new HashMap<>();
     private final AtomicBoolean running;
     private final Lock lock = new ReentrantLock();
@@ -46,7 +44,6 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
     @Inject
     public OracleChangeWriter(PlatformStream stream, ExecutorManager executorManager) {
         this.stream = stream;
-        this.executorManager = executorManager;
         this.running = new AtomicBoolean(true);
         CompletableFuture.runAsync(this::periodicWrite, executorManager.get());
     }
@@ -71,21 +68,21 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
 
     private void periodicWrite() {
         while (running.get()) {
-            Map<String, Set<String>> changes;
+            Map<String, Set<String>> changes = new LinkedHashMap<>();
             lock.lock();
             try {
                 batchWrite.await(100, MILLISECONDS);
-                changes = new HashMap<>(changedRows);
+                changes.putAll(changedRows);
+                changedRows.clear();
             } catch (InterruptedException e) {
                 log.warn("Oracle batch change writer stopped unexpectedly");
-                changes = null;
+                changes.clear();
                 running.set(false);
             } finally {
-                changedRows.clear();
                 lock.unlock();
             }
 
-            Optional.ofNullable(changes)
+            Optional.of(changes)
                     .filter(c -> !c.isEmpty())
                     .map(Map::entrySet)
                     .map(Collection::stream)
