@@ -1,6 +1,6 @@
 package com.leo.sdk;
 
-import com.leo.sdk.aws.DaggerAWSPlatform;
+import com.leo.sdk.aws.DaggerAWSLoadingPlatform;
 import com.leo.sdk.bus.Bots;
 import com.leo.sdk.bus.LoadingBot;
 import org.slf4j.Logger;
@@ -15,9 +15,14 @@ public final class LeoAWS {
     private static final Logger log = LoggerFactory.getLogger(LeoAWS.class);
 
     public static PlatformStream of(LoadingBot bot, Executor executor) {
-        PlatformStream stream = DaggerAWSPlatform.builder()
+
+        SDKPlatform sdkPlatform = DaggerExternalExecutorPlatform.builder()
+                .executor(executor)
+                .build();
+
+        PlatformStream stream = DaggerAWSLoadingPlatform.builder()
+                .executorManager(sdkPlatform.executorManager())
                 .loadingBot(bot)
-                .executorManager(new ExecutorManager(executor))
                 .build()
                 .platformStream();
         log.info("Created proxy loading stream to {} with supplied executor", bot);
@@ -25,15 +30,15 @@ public final class LeoAWS {
     }
 
     public static PlatformStream of(LoadingBot bot) {
-        ExecutorManager executorManager = DaggerSDKPlatform.builder()
-                .build()
-                .executorManager();
+        SDKPlatform sdkPlatform = DaggerSDKPlatform.builder()
+                .build();
 
-        PlatformStream stream = DaggerAWSPlatform.builder()
+        PlatformStream stream = DaggerAWSLoadingPlatform.builder()
+                .executorManager(sdkPlatform.executorManager())
                 .loadingBot(bot)
-                .executorManager(executorManager)
                 .build()
                 .platformStream();
+
         log.info("Created proxy loading stream to {} with default executor", bot);
         return stream;
     }

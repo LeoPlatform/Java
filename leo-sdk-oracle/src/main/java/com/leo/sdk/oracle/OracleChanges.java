@@ -1,6 +1,8 @@
 package com.leo.sdk.oracle;
 
+import com.leo.sdk.DaggerSDKPlatform;
 import com.leo.sdk.PlatformStream;
+import com.leo.sdk.SDKPlatform;
 import oracle.jdbc.OracleConnection;
 
 import java.util.Collection;
@@ -16,9 +18,13 @@ public final class OracleChanges {
     }
 
     public static OracleChangeLoader of(PlatformStream stream) {
+        SDKPlatform sdkPlatform = DaggerSDKPlatform.builder()
+                .build();
+
         return DaggerOraclePlatform.builder()
                 .platformStream(stream)
                 .changeSource(new ConfigFileSource())
+                .executorManager(sdkPlatform.executorManager())
                 .build()
                 .oracleChangeLoader();
     }

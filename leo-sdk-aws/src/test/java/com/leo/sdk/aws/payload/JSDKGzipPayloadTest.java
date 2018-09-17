@@ -1,6 +1,6 @@
 package com.leo.sdk.aws.payload;
 
-import com.leo.sdk.aws.DaggerAWSPlatform;
+import com.leo.sdk.aws.DaggerAWSLoadingPlatform;
 import com.leo.sdk.bus.Bots;
 import com.leo.sdk.payload.EventPayload;
 import org.testng.annotations.BeforeClass;
@@ -29,7 +29,8 @@ public class JSDKGzipPayloadTest {
     @BeforeClass
     void setUp() {
         System.setProperty("JAVA_ENV", "DevBus");
-        compressor = DaggerAWSPlatform.builder()
+        compressor = null;
+        DaggerAWSLoadingPlatform.builder()
                 .loadingBot(Bots.ofLoading("my-bot", "my-queue"))
                 .build()
                 .kinesisCompression();

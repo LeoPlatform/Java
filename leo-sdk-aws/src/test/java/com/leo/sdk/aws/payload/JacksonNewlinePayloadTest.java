@@ -1,6 +1,6 @@
 package com.leo.sdk.aws.payload;
 
-import com.leo.sdk.aws.DaggerAWSPlatform;
+import com.leo.sdk.aws.DaggerAWSLoadingPlatform;
 import com.leo.sdk.bus.Bots;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.EventPayload;
@@ -14,7 +14,7 @@ import java.time.Instant;
 
 public class JacksonNewlinePayloadTest {
 
-    private StreamJsonPayload jp = DaggerAWSPlatform.builder()
+    private StreamJsonPayload jp = DaggerAWSLoadingPlatform.builder()
             .loadingBot(Bots.ofLoading("my-bot", "my-queue"))
             .build()
             .streamJsonPayload();

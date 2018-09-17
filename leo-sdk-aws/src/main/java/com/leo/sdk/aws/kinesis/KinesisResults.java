@@ -72,7 +72,7 @@ public final class KinesisResults {
                 .filter(a -> a.equals("1"))
                 .map(a -> "")
                 .orElse("s");
-        log.info("{} uploaded record {} to Kinesis shard {} in {} attempt{}", succ, seq, shard, att, plu);
+        log.info("{} uploaded record {} to {} in {} attempt{}", succ, seq, shard, att, plu);
     }
 
     private void logFailure(UserRecordResult result) {

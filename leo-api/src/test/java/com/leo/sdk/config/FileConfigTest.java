@@ -13,7 +13,7 @@ public class FileConfigTest {
     @BeforeClass
     void setUp() {
         System.setProperty("JAVA_ENV", "DevBus");
-        fileConfig = DaggerSDKPlatform.builder().build().connectorConfig();
+        fileConfig = DaggerSDKPlatform.create().connectorConfig();
     }
 
     @Test
