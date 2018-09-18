@@ -4,6 +4,8 @@
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
+!.gitignore
+!/leo-sdk-oracle/lib/*.jar
 # Package Files #
 *.jar
 *.war
@@ -57,7 +59,6 @@ gradle-app.setting
 # Cache of project
 .gradletasknamecache
 
-.gitignore
 .idea/compiler.xml
 .idea/dictionaries/
 .idea/inspectionProfiles/

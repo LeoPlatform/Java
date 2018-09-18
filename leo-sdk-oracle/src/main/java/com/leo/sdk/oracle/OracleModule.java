@@ -4,7 +4,6 @@ import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.PlatformStream;
 import dagger.Module;
 import dagger.Provides;
-import oracle.jdbc.dcn.DatabaseChangeListener;
 
 import javax.inject.Singleton;
 
@@ -12,8 +11,8 @@ import javax.inject.Singleton;
 public final class OracleModule {
     @Singleton
     @Provides
-    public static OracleChangeRegistrar provideOracleChangeRegistrar(OracleChangeSource source, DatabaseChangeListener dcl, ExecutorManager executorManager) {
-        return new OracleChangeRegistrar(source, dcl, executorManager);
+    public static OracleChangeRegistrar provideOracleChangeRegistrar(OracleChangeSource source, OracleChangeWriter ocw, ExecutorManager executorManager) {
+        return new OracleChangeRegistrar(source, ocw, executorManager);
     }
 
     @Singleton
@@ -24,7 +23,7 @@ public final class OracleModule {
 
     @Singleton
     @Provides
-    public static DatabaseChangeListener provideDatabaseChangeListener(PlatformStream stream, ExecutorManager executorManager) {
+    public static OracleChangeWriter provideDatabaseChangeListener(PlatformStream stream, ExecutorManager executorManager) {
         return new OracleChangeWriter(stream, executorManager);
     }
 }

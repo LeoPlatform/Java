@@ -20,7 +20,10 @@ import javax.json.JsonObjectBuilder;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -36,61 +39,98 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeWriter.class);
 
     private final PlatformStream stream;
-    private final Map<String, Set<String>> changedRows = new HashMap<>();
+    private final ExecutorManager executorManager;
+    private final BlockingQueue<DatabaseChangeEvent> payloads = new LinkedBlockingQueue<>();
+    private final Queue<CompletableFuture<Void>> pendingWrites = new LinkedList<>();
     private final AtomicBoolean running;
     private final Lock lock = new ReentrantLock();
-    private final Condition batchWrite = lock.newCondition();
+    private final Condition changedRows = lock.newCondition();
 
     @Inject
     public OracleChangeWriter(PlatformStream stream, ExecutorManager executorManager) {
         this.stream = stream;
+        this.executorManager = executorManager;
         this.running = new AtomicBoolean(true);
-        CompletableFuture.runAsync(this::periodicWrite, executorManager.get());
+        CompletableFuture.runAsync(this::asyncWriter, executorManager.get());
     }
 
     @Override
     public void onDatabaseChangeNotification(DatabaseChangeEvent changeEvent) {
         log.info("Received database notification {}", changeEvent);
-        Optional.of(rowsChanged(changeEvent))
-                .filter(r -> !r.isEmpty())
-                .ifPresent(changes -> {
-                    lock.lock();
-                    try {
-                        changes.forEach((key, value) -> changedRows
-                                .merge(key, value, (tbl, rows) -> Stream.of(rows, value)
-                                        .flatMap(Set::stream)
-                                        .collect(toSet())));
-                    } finally {
-                        lock.unlock();
-                    }
-                });
-    }
-
-    private void periodicWrite() {
-        while (running.get()) {
-            Map<String, Set<String>> changes = new LinkedHashMap<>();
+        if (running.get()) {
             lock.lock();
             try {
-                batchWrite.await(100, MILLISECONDS);
-                changes.putAll(changedRows);
-                changedRows.clear();
-            } catch (InterruptedException e) {
-                log.warn("Oracle batch change writer stopped unexpectedly");
-                changes.clear();
+                payloads.put(changeEvent);
+                changedRows.signalAll();
+            } catch (InterruptedException i) {
+                log.warn("Batch writer stopped unexpectedly");
                 running.set(false);
             } finally {
                 lock.unlock();
             }
-
-            Optional.of(changes)
-                    .filter(c -> !c.isEmpty())
-                    .map(Map::entrySet)
-                    .map(Collection::stream)
-                    .map(this::reduceEntries)
-                    .map(JsonObjectBuilder::build)
-                    .map(this::toPayload)
-                    .ifPresent(stream::load);
         }
+    }
+
+    private void asyncWriter() {
+        while (running.get()) {
+            lock.lock();
+            try {
+                changedRows.await(200, MILLISECONDS);
+                Queue<DatabaseChangeEvent> toWrite = new LinkedList<>();
+                payloads.drainTo(toWrite);
+                if (!toWrite.isEmpty()) {
+                    Executor e = executorManager.get();
+                    CompletableFuture<Void> cf = CompletableFuture
+                            .runAsync(() -> sendToBus(toWrite), e)
+                            .thenRunAsync(this::removeCompleted, e);
+                    pendingWrites.add(cf);
+                }
+
+            } catch (InterruptedException e) {
+                log.warn("Oracle batch change writer stopped unexpectedly");
+                running.set(false);
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
+    private void sendToBus(Queue<DatabaseChangeEvent> toWrite) {
+        Map<String, Set<String>> tableChanges = toTableChanges(toWrite);
+        tableChanges.forEach((t, r) -> {
+            log.info("Sending rows for {}", t);
+            log.info(String.join(",", r));
+        });
+        Optional.of(tableChanges)
+                .filter(c -> !c.isEmpty())
+                .map(Map::entrySet)
+                .map(Collection::stream)
+                .map(this::reduceEntries)
+                .map(JsonObjectBuilder::build)
+                .map(this::toPayload)
+                .ifPresent(stream::load);
+    }
+
+    CompletableFuture<StreamStats> end() {
+        running.set(false);
+        lock.lock();
+        try {
+            changedRows.signalAll();
+        } finally {
+            lock.unlock();
+        }
+
+        completePendingTasks();
+        return stream.end();
+    }
+
+    private Map<String, Set<String>> toTableChanges(Queue<DatabaseChangeEvent> toWrite) {
+        Map<String, Set<String>> changes = new LinkedHashMap<>();
+        toWrite.forEach(e -> rowsChanged(e).forEach((key, value) -> changes
+                .merge(key, value, (tbl, rows) -> Stream.of(rows, value)
+                        .flatMap(Set::stream)
+                        .collect(toSet()))));
+        return changes;
     }
 
     private JsonObjectBuilder reduceEntries(Stream<Entry<String, Set<String>>> s) {
@@ -131,22 +171,44 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
         return () -> jsonObject;
     }
 
-    public CompletableFuture<StreamStats> end() {
-        running.set(false);
-        lock.lock();
-        try {
-            batchWrite.signalAll();
-        } finally {
-            lock.unlock();
-        }
-
-        return stream.end();
-    }
-
     private String tableName(TableChangeDescription desc) {
         return Optional.ofNullable(desc)
                 .map(TableChangeDescription::getTableName)
                 .orElseThrow(() -> new IllegalArgumentException("Missing table name in description " + desc));
+    }
+
+    private void removeCompleted() {
+        lock.lock();
+        try {
+            pendingWrites.removeIf(CompletableFuture::isDone);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void completePendingTasks() {
+        removeCompleted();
+        lock.lock();
+        try {
+            long inFlight = pendingWrites.parallelStream()
+                    .filter(w -> !w.isDone())
+                    .count();
+            log.info("Waiting for {} Oracle writer task{} to complete", inFlight, inFlight == 1 ? "" : "s");
+        } finally {
+            lock.unlock();
+        }
+        while (!pendingWrites.isEmpty()) {
+            lock.lock();
+            try {
+                changedRows.await(100, MILLISECONDS);
+            } catch (InterruptedException i) {
+                log.warn("Stopped with incomplete pending Oracle writer tasks");
+                pendingWrites.clear();
+            } finally {
+                lock.unlock();
+            }
+            removeCompleted();
+        }
     }
 
     private List<RowChangeDescription> rowChangeDescription(TableChangeDescription desc) {

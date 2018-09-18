@@ -6,7 +6,6 @@ import com.leo.sdk.SDKModule;
 import com.leo.sdk.SDKPlatform;
 import dagger.BindsInstance;
 import dagger.Component;
-import oracle.jdbc.dcn.DatabaseChangeListener;
 
 import javax.inject.Singleton;
 
@@ -32,5 +31,5 @@ public interface OraclePlatform extends SDKPlatform {
         OraclePlatform build();
     }
 
-    DatabaseChangeListener databaseChangeListener();
+    OracleChangeWriter databaseChangeListener();
 }

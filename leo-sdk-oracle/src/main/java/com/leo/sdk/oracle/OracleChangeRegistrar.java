@@ -3,7 +3,6 @@ package com.leo.sdk.oracle;
 import com.leo.sdk.ExecutorManager;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleStatement;
-import oracle.jdbc.dcn.DatabaseChangeListener;
 import oracle.jdbc.dcn.DatabaseChangeRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,13 +29,13 @@ public final class OracleChangeRegistrar {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeRegistrar.class);
 
     private final OracleChangeSource source;
-    private final DatabaseChangeListener dcl;
+    private final OracleChangeWriter ocw;
     private final ExecutorManager executorManager;
 
     @Inject
-    public OracleChangeRegistrar(OracleChangeSource source, DatabaseChangeListener dcl, ExecutorManager executorManager) {
+    public OracleChangeRegistrar(OracleChangeSource source, OracleChangeWriter ocw, ExecutorManager executorManager) {
         this.source = source;
-        this.dcl = dcl;
+        this.ocw = ocw;
         this.executorManager = executorManager;
     }
 
@@ -65,6 +64,7 @@ public final class OracleChangeRegistrar {
     }
 
     public List<String> end() {
+        ocw.end().join();
         executorManager.end();
         return source.tables();
     }
@@ -80,7 +80,7 @@ public final class OracleChangeRegistrar {
 
     private void addChangeListener(DatabaseChangeRegistration dcr) {
         try {
-            dcr.addListener(dcl, executorManager.get());
+            dcr.addListener(ocw, executorManager.get());
         } catch (SQLException e) {
             throw new IllegalStateException("Could not add listener to registrar", e);
         }

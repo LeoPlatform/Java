@@ -26,7 +26,6 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration.ThreadingModel.POOLED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Singleton
@@ -48,8 +47,10 @@ public final class KinesisProducerWriter {
                 .setCredentialsProvider(credentials(config))
                 .setRegion(config.valueOrElse("Region", "us-east-1"))
                 .setAggregationEnabled(false)
-                .setCollectionMaxCount(1)
-                .setThreadingModel(POOLED)
+                .setRecordMaxBufferedTime(200L)
+                .setRequestTimeout(60000)
+                .setMaxConnections(48)
+                .setCredentialsRefreshDelay(100)
                 .setMetricsNamespace("LEO Java SDK")
                 .setLogLevel("info");
         this.kinesis = new KinesisProducer(kCfg);

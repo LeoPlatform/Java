@@ -57,7 +57,7 @@ public final class JSDKGzipWriter implements CompressionWriter {
     private String inflatedPayload(List<EntityPayload> entities) {
         return entities.parallelStream()
                 .map(streamJson::toJsonString)
-                .collect(Collectors.joining(NEWLINE));
+                .collect(Collectors.joining(NEWLINE, "", NEWLINE));
     }
 
     private String getQueue(List<EntityPayload> entities) {

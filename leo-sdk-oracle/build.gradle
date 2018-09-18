@@ -27,14 +27,17 @@ test {
 }
 
 repositories {
-    maven {
-        url 'https://www.oracle.com/content/secure/maven/content'
-        name 'maven.oracle.com'
-        credentials {
-            username oracle_user
-            password oracle_password
-        }
+    flatDir {
+        dirs "${projectDir.path}/lib"
     }
+//    maven {
+//        url 'https://www.oracle.com/content/secure/maven/content'
+//        name 'maven.oracle.com'
+//        credentials {
+//            username oracle_user
+//            password oracle_password
+//        }
+//    }
 }
 
 publishing {

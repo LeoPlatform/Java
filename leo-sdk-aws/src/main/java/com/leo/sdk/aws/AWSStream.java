@@ -15,6 +15,8 @@ import javax.inject.Singleton;
 import javax.json.Json;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -37,7 +39,10 @@ public final class AWSStream implements PlatformStream {
     @Override
     public void load(EventPayload payload) {
         if (streaming.get()) {
-            transferProxy.addEntity(payload);
+            EventPayload sanitized = Optional.ofNullable(payload)
+                    .filter(p -> Objects.nonNull(p.payload()))
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid payload: " + payload));
+            transferProxy.addEntity(sanitized);
         } else {
             log.warn("Attempt to load payload on a closed stream");
         }
