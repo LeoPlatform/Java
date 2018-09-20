@@ -3,105 +3,150 @@ package com.leo.sdk.aws.s3;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.transfer.PersistableTransfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
-import com.amazonaws.services.s3.transfer.internal.S3ProgressListener;
+import com.amazonaws.services.s3.transfer.model.UploadResult;
+import com.leo.sdk.ExecutorManager;
+import com.leo.sdk.StreamStats;
+import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.config.ConnectorConfig;
-import com.leo.sdk.payload.FileSegment;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import java.io.ByteArrayInputStream;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static com.amazonaws.event.ProgressEventType.TRANSFER_COMPLETED_EVENT;
-import static com.amazonaws.services.s3.transfer.Transfer.TransferState.Completed;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toList;
 
 public class S3TransferManager {
     private static final Logger log = LoggerFactory.getLogger(S3TransferManager.class);
 
     private final String name;
     private final TransferManager s3TransferManager;
+    private final S3Results resultsProcessor;
+    private final LoadingBot bot;
 
-    private final Queue<Upload> pendingUploads = new LinkedList<>();
+    private final Queue<PendingUpload> pendingUploads = new LinkedList<>();
+    private final AtomicBoolean running;
+    private final AtomicBoolean uploading;
     private final Lock lock = new ReentrantLock();
-    private final Condition uploadProgress = lock.newCondition();
-    private final S3ProgressListener listener = new XferListener();
+    private final Condition newUpload = lock.newCondition();
 
     @Inject
-    public S3TransferManager(ConnectorConfig config) {
+    public S3TransferManager(ConnectorConfig config, ExecutorManager executorManager,
+                             S3Results resultsProcessor, LoadingBot bot) {
         this.name = config.value("Storage.Name");
         this.s3TransferManager = TransferManagerBuilder.standard()
                 .withS3Client(client(config.valueOrElse("AwsProfile", "")))
                 .withDisableParallelDownloads(false)
                 .build();
+        this.resultsProcessor = resultsProcessor;
+        this.bot = bot;
+        running = new AtomicBoolean(true);
+        uploading = new AtomicBoolean(false);
+        CompletableFuture.runAsync(this::synchronousUpload, executorManager.get());
     }
 
-    Upload transfer(String fileName, Queue<FileSegment> segments) {
-        byte[] file = concat(segments);
+    void enqueue(PendingUpload pendingUpload) {
+        if (running.get()) {
+            lock.lock();
+            try {
+                pendingUploads.add(pendingUpload);
+                newUpload.signalAll();
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
 
-        ObjectMetadata meta = new ObjectMetadata();
-        byte[] resultByte = DigestUtils.md5(file);
-        String streamMD5 = new String(Base64.encodeBase64(resultByte));
-        meta.setContentMD5(streamMD5);
-        meta.setContentLength(file.length);
+    private void synchronousUpload() {
+        while (running.get()) {
+            lock.lock();
+            try {
+                if (pendingUploads.isEmpty()) {
+                    uploading.set(false);
+                    newUpload.await();
+                    uploading.set(true);
+                }
+            } catch (InterruptedException i) {
+                running.set(false);
+                pendingUploads.clear();
+                log.warn("S3 transfer manager stopped with {} pending", pendingUploads.size());
+            } finally {
+                lock.unlock();
+            }
+            while (!pendingUploads.isEmpty()) {
+                uploadNext();
+            }
+        }
+        uploading.set(false);
+        log.info("Transfer manager stopped");
+    }
 
-        PutObjectRequest req = new PutObjectRequest(name, fileName, new ByteArrayInputStream(file), meta);
-        Upload upload = s3TransferManager.upload(req, listener);
+    private void uploadNext() {
+        PendingUpload next;
         lock.lock();
         try {
-            pendingUploads.add(upload);
+            next = pendingUploads.remove();
+        } catch (Exception e) {
+            log.warn("Unexpectedly empty upload queue");
+            return;
         } finally {
             lock.unlock();
         }
-        return upload;
+        upload(next);
     }
 
-    private byte[] concat(Queue<FileSegment> segments) {
-        byte[] all = new byte[segments.stream()
-                .map(FileSegment::getSegment)
-                .mapToInt(b -> b.length)
-                .sum()];
-        AtomicInteger pos = new AtomicInteger(0);
-        segments.stream()
-                .map(FileSegment::getSegment)
-                .forEachOrdered(b1 -> System.arraycopy(b1, 0, all, pos.getAndAdd(b1.length), b1.length));
-        return all;
+    private void upload(PendingUpload next) {
+        log.info("Beginning upload of {} to S3", next.filename());
+        PutObjectRequest request = next.s3PutRequest(name);
+        Upload upload = s3TransferManager.upload(request);
+        try {
+            UploadResult uploadResult = upload.waitForUploadResult();
+            S3Payload s3Payload = next.s3Payload(uploadResult, bot.name());
+            log.info("{} byte upload of {} complete", s3Payload.getGzipSize(), next.filename());
+            resultsProcessor.addSuccess(s3Payload, uploadResult);
+        } catch (Exception e) {
+            log.warn("S3 upload unexpectedly stopped");
+            running.set(false);
+            resultsProcessor.addFailure(upload.getDescription(), e);
+        }
+        lock.lock();
+        try {
+            newUpload.signalAll();
+        } finally {
+            lock.unlock();
+        }
     }
 
-    void end() {
-        while (!pendingUploads.isEmpty()) {
+    StreamStats end() {
+        running.set(false);
+        while (!pendingUploads.isEmpty() || uploading.get()) {
             lock.lock();
             try {
-                uploadProgress.await(100, MILLISECONDS);
+                newUpload.await(100, MILLISECONDS);
             } catch (InterruptedException e) {
                 log.warn("S3 transfer manager unexpectedly stopped");
                 pendingUploads.clear();
             } finally {
                 lock.unlock();
             }
-            removeCompleted();
         }
         s3TransferManager.shutdownNow();
+        return getStats();
     }
 
     private AmazonS3 client(String awsProfile) {
@@ -120,37 +165,22 @@ public class S3TransferManager {
                 .orElse(DefaultAWSCredentialsProviderChain.getInstance());
     }
 
-    private final class XferListener implements S3ProgressListener {
-
-        @Override
-        public void onPersistableTransfer(PersistableTransfer persistableTransfer) {
-            log.info("Perishable xfer");
-        }
-
-        @Override
-        public void progressChanged(ProgressEvent progressEvent) {
-            if (progressEvent.getEventType() == TRANSFER_COMPLETED_EVENT) {
-                removeCompleted();
-                lock.lock();
-                try {
-                    uploadProgress.signalAll();
-                } finally {
-                    lock.unlock();
-                }
+    private StreamStats getStats() {
+        return new StreamStats() {
+            @Override
+            public Long successes() {
+                return resultsProcessor.successes();
             }
-        }
-    }
 
-    private void removeCompleted() {
-        lock.lock();
-        try {
-            List<Upload> completed = pendingUploads.stream()
-                    .filter(u -> u.getState() == Completed)
-                    .collect(toList());
-            completed.forEach(c -> log.info("{} complete", c.getDescription()));
-            pendingUploads.removeAll(completed);
-        } finally {
-            lock.unlock();
-        }
+            @Override
+            public Long failures() {
+                return resultsProcessor.failures();
+            }
+
+            @Override
+            public Duration totalTime() {
+                return Duration.between(resultsProcessor.start(), Instant.now());
+            }
+        };
     }
 }

@@ -1,26 +1,21 @@
 package com.leo.sdk.aws.s3;
 
-import com.amazonaws.services.s3.transfer.Upload;
-import com.amazonaws.services.s3.transfer.model.UploadResult;
 import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.StreamStats;
-import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.config.ConnectorConfig;
 import com.leo.sdk.payload.FileSegment;
 import com.leo.sdk.payload.StorageEventOffset;
-import com.leo.sdk.payload.StorageStats;
-import com.leo.sdk.payload.StorageUnits;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.LinkedList;
+import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
@@ -29,7 +24,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toList;
 
 @Singleton
 public final class S3Writer {
@@ -43,9 +37,6 @@ public final class S3Writer {
     private final int maxBatchRecords;
     private final long maxRecordSize;
     private final S3TransferManager transferManager;
-    private final ExecutorManager executorManager;
-    private final S3Results resultsProcessor;
-    private final LoadingBot bot;
 
     private final Queue<FileSegment> payloads = new LinkedList<>();
     private final AtomicBoolean running;
@@ -54,15 +45,11 @@ public final class S3Writer {
 
     @Inject
     public S3Writer(ConnectorConfig config, S3TransferManager transferManager,
-                    ExecutorManager executorManager, S3Results resultsProcessor,
-                    LoadingBot bot) {
+                    ExecutorManager executorManager) {
         maxBatchAge = config.longValueOrElse("Storage.MaxBatchAge", 4000L);
         maxBatchRecords = config.intValueOrElse("Storage.MaxBatchRecords", 6000);
-        maxRecordSize = config.longValueOrElse("Storage.MaxRecordSize", 5017600L);
+        maxRecordSize = config.longValueOrElse("Storage.MaxBatchSize", 5017600L);
         this.transferManager = transferManager;
-        this.executorManager = executorManager;
-        this.resultsProcessor = resultsProcessor;
-        this.bot = bot;
         running = new AtomicBoolean(true);
         CompletableFuture.runAsync(this::asyncBatchSend, executorManager.get());
     }
@@ -90,9 +77,8 @@ public final class S3Writer {
         running.set(false);
         signalBatch();
         sendAll();
-        transferManager.end();
         log.info("Stopped S3 writer");
-        return getStats();
+        return transferManager.end();
     }
 
     private void signalBatch() {
@@ -142,9 +128,8 @@ public final class S3Writer {
 
     private void transferAsync(long fileCount, Instant now, Queue<FileSegment> segments, StorageEventOffset o) {
         String fileName = fileName(o, now, fileCount);
-        Upload upload = transferManager.transfer(fileName, segments);
-        Executor e = executorManager.get();
-        CompletableFuture.runAsync(() -> processResult(upload, segments), e);
+        PendingUpload pendingUpload = new PendingUpload(fileName, segments);
+        transferManager.enqueue(pendingUpload);
     }
 
     private void sendAll() {
@@ -189,69 +174,5 @@ public final class S3Writer {
     private String padWithZeros(long value) {
         String val = String.valueOf(value);
         return String.format("%0" + (7 - val.length()) + "d%s", 0, val);
-    }
-
-    private void processResult(Upload upload, Queue<FileSegment> segments) {
-        try {
-            UploadResult result = upload.waitForUploadResult();
-            S3Payload s3Payload = toS3Payload(result, segments);
-            resultsProcessor.addSuccess(s3Payload, result);
-        } catch (Exception e) {
-            resultsProcessor.addFailure(upload.getDescription(), e);
-        }
-    }
-
-    private S3Payload toS3Payload(UploadResult result, Queue<FileSegment> segments) {
-        String queue = getEvent(segments);
-        Long gzipSize = segments.stream().map(FileSegment::getOffset).mapToLong(StorageEventOffset::getGzipSize).sum();
-        Long size = segments.stream().map(FileSegment::getOffset).mapToLong(StorageEventOffset::getSize).sum();
-        Long records = segments.stream().map(FileSegment::getOffset).mapToLong(StorageEventOffset::getRecords).sum();
-        S3LocationPayload location = new S3LocationPayload(result.getBucketName(), result.getKey());
-        List<StorageEventOffset> offsets = accumulateOffsets(segments);
-        StorageStats stats = new StorageStats(Collections.singletonMap(bot.name(), new StorageUnits(records)));
-        return new S3Payload(queue, null, null, location, offsets, gzipSize, size, records, stats);
-    }
-
-    private List<StorageEventOffset> accumulateOffsets(Queue<FileSegment> segments) {
-        AtomicLong startAccumulator = new AtomicLong();
-        AtomicLong offsetAccumulator = new AtomicLong();
-        AtomicLong gzipOffsetAccumulator = new AtomicLong();
-        return segments.stream()
-                .map(FileSegment::getOffset)
-                .map(o -> {
-                    Long start = startAccumulator.getAndAdd(o.getRecords());
-                    Long end = start + o.getRecords() - 1;
-                    Long offset = offsetAccumulator.getAndAdd(o.getSize());
-                    Long gzipOffset = gzipOffsetAccumulator.getAndAdd(o.getGzipSize());
-                    return new StorageEventOffset(o.getEvent(), start, end, o.getSize(), offset, o.getRecords(), o.getGzipSize(), gzipOffset);
-                })
-                .collect(toList());
-    }
-
-    private String getEvent(Queue<FileSegment> segments) {
-        return Optional.of(segments)
-                .map(Queue::peek)
-                .map(FileSegment::getOffset)
-                .map(StorageEventOffset::getEvent)
-                .orElseThrow(() -> new IllegalArgumentException("Missing storage event"));
-    }
-
-    private StreamStats getStats() {
-        return new StreamStats() {
-            @Override
-            public Long successes() {
-                return resultsProcessor.successes();
-            }
-
-            @Override
-            public Long failures() {
-                return resultsProcessor.failures();
-            }
-
-            @Override
-            public Duration totalTime() {
-                return Duration.between(resultsProcessor.start(), Instant.now());
-            }
-        };
     }
 }

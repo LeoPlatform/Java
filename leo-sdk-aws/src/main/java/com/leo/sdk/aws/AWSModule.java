@@ -51,8 +51,7 @@ final class AWSModule {
     @Singleton
     @Provides
     @Named("Storage")
-    static AsyncWorkQueue provideS3Queue(ExecutorManager executorManager,
-                                         CompressionWriter compression, S3Writer s3Writer) {
+    static AsyncWorkQueue provideS3Queue(ExecutorManager executorManager, CompressionWriter compression, S3Writer s3Writer) {
         return new S3Queue(executorManager, compression, s3Writer);
     }
 
@@ -64,8 +63,15 @@ final class AWSModule {
 
     @Singleton
     @Provides
-    static S3TransferManager provideS3TransferManager(ConnectorConfig config) {
-        return new S3TransferManager(config);
+    static S3Writer provideS3Writer(ConnectorConfig config, S3TransferManager transferManager, ExecutorManager executorManager) {
+        return new S3Writer(config, transferManager, executorManager);
+    }
+
+    @Singleton
+    @Provides
+    static S3TransferManager provideS3TransferManager(ConnectorConfig config, ExecutorManager executorManager,
+                                                      S3Results resultsProcessor, LoadingBot bot) {
+        return new S3TransferManager(config, executorManager, resultsProcessor, bot);
     }
 
     @Singleton
