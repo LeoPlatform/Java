@@ -1,4 +1,4 @@
-package com.leo.sdk.aws.payload;
+package com.leo.sdk.payload;
 
 public interface ThresholdMonitor {
     void addBytes(Long bytes);

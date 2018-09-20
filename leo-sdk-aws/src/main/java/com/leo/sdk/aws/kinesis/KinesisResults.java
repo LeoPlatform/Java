@@ -1,9 +1,11 @@
 package com.leo.sdk.aws.kinesis;
 
 import com.amazonaws.services.kinesis.producer.UserRecordResult;
+import com.leo.sdk.payload.ThresholdMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.time.Instant;
 import java.util.List;
@@ -17,9 +19,15 @@ public final class KinesisResults {
     private final AtomicLong successes = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
     private final Instant start = Instant.now();
+    private final ThresholdMonitor thresholdMonitor;
 
+    @Inject
+    public KinesisResults(ThresholdMonitor thresholdMonitor) {
+        this.thresholdMonitor = thresholdMonitor;
+    }
 
-    void add(UserRecordResult recordResult) {
+    void add(UserRecordResult recordResult, int length) {
+        thresholdMonitor.addBytes((long) length);
         Optional.ofNullable(recordResult)
                 .ifPresent(this::log);
     }

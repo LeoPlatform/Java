@@ -15,7 +15,7 @@ import java.util.Optional;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS;
 
 @Singleton
-public final class JacksonPayload implements StreamJsonPayload {
+public final class JacksonPayload implements S3JsonPayload {
     private final ObjectMapper mapper = buildMapper();
     private final LoadingBot bot;
 

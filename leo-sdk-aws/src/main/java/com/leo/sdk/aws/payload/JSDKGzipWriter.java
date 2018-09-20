@@ -1,10 +1,7 @@
 package com.leo.sdk.aws.payload;
 
 import com.leo.sdk.aws.s3.S3Payload;
-import com.leo.sdk.payload.EntityPayload;
-import com.leo.sdk.payload.EventPayload;
-import com.leo.sdk.payload.FileSegment;
-import com.leo.sdk.payload.StorageEventOffset;
+import com.leo.sdk.payload.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,11 +26,11 @@ public final class JSDKGzipWriter implements CompressionWriter {
     private static final Logger log = LoggerFactory.getLogger(JSDKGzipWriter.class);
 
     private static final String NEWLINE = "\n";
-    private final StreamJsonPayload streamJson;
+    private final S3JsonPayload streamJson;
     private final ThresholdMonitor thresholdMonitor;
 
     @Inject
-    public JSDKGzipWriter(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
+    public JSDKGzipWriter(S3JsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
         this.streamJson = streamJson;
         this.thresholdMonitor = thresholdMonitor;
     }

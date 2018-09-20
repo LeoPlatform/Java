@@ -3,8 +3,8 @@ package com.leo.sdk.aws;
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.TransferStyle;
-import com.leo.sdk.aws.payload.ThresholdMonitor;
 import com.leo.sdk.payload.EventPayload;
+import com.leo.sdk.payload.ThresholdMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

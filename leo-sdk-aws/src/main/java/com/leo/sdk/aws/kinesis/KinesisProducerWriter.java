@@ -64,7 +64,7 @@ public final class KinesisProducerWriter {
             Executor e = executorManager.get();
             CompletableFuture<Void> cf = CompletableFuture
                     .supplyAsync(() -> addRecord(payload), e)
-                    .thenAcceptAsync(resultsProcessor::add, e)
+                    .thenAcceptAsync(r -> resultsProcessor.add(r, payload.array().length), e)
                     .thenRunAsync(this::removeCompleted, e);
             pendingWrites.add(cf);
         } finally {

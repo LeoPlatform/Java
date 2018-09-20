@@ -13,6 +13,7 @@ import com.leo.sdk.aws.s3.S3TransferManager;
 import com.leo.sdk.aws.s3.S3Writer;
 import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.config.ConnectorConfig;
+import com.leo.sdk.payload.ThresholdMonitor;
 import dagger.Module;
 import dagger.Provides;
 
@@ -76,13 +77,13 @@ final class AWSModule {
 
     @Singleton
     @Provides
-    static CompressionWriter provideKinesisCompression(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
-        return new JCraftGzipWriter(streamJson, thresholdMonitor);
+    static CompressionWriter provideKinesisCompression(S3JsonPayload streamJson) {
+        return new JCraftGzipWriter(streamJson);
     }
 
     @Singleton
     @Provides
-    static StreamJsonPayload provideStreamJsonPayload(LoadingBot bot) {
+    static S3JsonPayload provideStreamJsonPayload(LoadingBot bot) {
         return new JacksonPayload(bot);
     }
 
@@ -94,13 +95,13 @@ final class AWSModule {
 
     @Singleton
     @Provides
-    static KinesisResults provideKinesisResults() {
-        return new KinesisResults();
+    static KinesisResults provideKinesisResults(ThresholdMonitor thresholdMonitor) {
+        return new KinesisResults(thresholdMonitor);
     }
 
     @Singleton
     @Provides
-    static S3Results provideS3Results(CompressionWriter compression, KinesisProducerWriter kinesis) {
-        return new S3Results(compression, kinesis);
+    static S3Results provideS3Results(CompressionWriter compression, KinesisProducerWriter kinesis, ThresholdMonitor thresholdMonitor) {
+        return new S3Results(compression, kinesis, thresholdMonitor);
     }
 }

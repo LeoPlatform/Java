@@ -5,7 +5,7 @@ import com.leo.sdk.SDKModule;
 import com.leo.sdk.SDKPlatform;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.kinesis.KinesisResults;
-import com.leo.sdk.aws.payload.ThresholdMonitor;
+import com.leo.sdk.payload.ThresholdMonitor;
 import dagger.BindsInstance;
 import dagger.Component;
 

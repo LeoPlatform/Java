@@ -25,7 +25,7 @@ public final class LeoAWS {
                 .loadingBot(bot)
                 .build()
                 .platformStream();
-        log.info("Created proxy loading stream to {} with supplied executor", bot);
+        log.info("Created proxy loading stream to {} with supplied executor", bot.destination().name());
         return stream;
     }
 
@@ -39,7 +39,7 @@ public final class LeoAWS {
                 .build()
                 .platformStream();
 
-        log.info("Created proxy loading stream to {} with default executor", bot);
+        log.info("Created proxy loading stream to {} with default executor", bot.destination().name());
         return stream;
     }
 

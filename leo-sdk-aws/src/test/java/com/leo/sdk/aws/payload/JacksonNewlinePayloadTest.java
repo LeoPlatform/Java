@@ -13,10 +13,10 @@ import java.time.Instant;
 
 public class JacksonNewlinePayloadTest {
 
-    private StreamJsonPayload jp = DaggerAWSLoadingPlatform.builder()
+    private S3JsonPayload jp = DaggerAWSLoadingPlatform.builder()
             .loadingBot(Bots.ofLoading("my-bot", "my-queue"))
             .build()
-            .streamJsonPayload();
+            .s3JsonPayload();
 
     //    @Test
     public void testJsonTime() {

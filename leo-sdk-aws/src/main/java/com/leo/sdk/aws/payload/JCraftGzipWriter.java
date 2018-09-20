@@ -29,13 +29,11 @@ public final class JCraftGzipWriter implements CompressionWriter {
     private static final Logger log = LoggerFactory.getLogger(JCraftGzipWriter.class);
 
     private static final String NEWLINE = "\n";
-    private final StreamJsonPayload streamJson;
-    private final ThresholdMonitor thresholdMonitor;
+    private final S3JsonPayload streamJson;
 
     @Inject
-    public JCraftGzipWriter(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
+    public JCraftGzipWriter(S3JsonPayload streamJson) {
         this.streamJson = streamJson;
-        this.thresholdMonitor = thresholdMonitor;
     }
 
     @Override
@@ -53,8 +51,6 @@ public final class JCraftGzipWriter implements CompressionWriter {
         Long gzipSize = (long) compressedPayload.length;
         Long gzipOffset = 0L;
 
-        thresholdMonitor.addBytes(gzipSize);
-
         StorageEventOffset seo = new StorageEventOffset(queue, start, end, size, offset, records, gzipSize, gzipOffset);
         return new FileSegment(seo, compressedPayload);
     }
@@ -63,8 +59,6 @@ public final class JCraftGzipWriter implements CompressionWriter {
     public ByteBuffer compress(S3Payload payload) {
         String inflatedPayload = streamJson.toJsonString(payload) + NEWLINE;
         byte[] compressedPayload = toGzip(inflatedPayload);
-
-        thresholdMonitor.addBytes((long) compressedPayload.length);
         return ByteBuffer.wrap(compressedPayload);
     }
 

@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedList;
@@ -31,6 +32,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+@Singleton
 public class S3TransferManager {
     private static final Logger log = LoggerFactory.getLogger(S3TransferManager.class);
 
@@ -78,7 +80,7 @@ public class S3TransferManager {
             try {
                 if (pendingUploads.isEmpty()) {
                     uploading.set(false);
-                    newUpload.await();
+                    newUpload.await(100, MILLISECONDS);
                     uploading.set(true);
                 }
             } catch (InterruptedException i) {

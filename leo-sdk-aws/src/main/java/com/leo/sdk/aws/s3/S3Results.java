@@ -3,6 +3,7 @@ package com.leo.sdk.aws.s3;
 import com.amazonaws.services.s3.transfer.model.UploadResult;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.payload.CompressionWriter;
+import com.leo.sdk.payload.ThresholdMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,16 +23,19 @@ public final class S3Results {
     private final Instant start = Instant.now();
     private final CompressionWriter compressionWriter;
     private final KinesisProducerWriter kinesis;
+    private final ThresholdMonitor thresholdMonitor;
 
     @Inject
-    public S3Results(CompressionWriter compressionWriter, KinesisProducerWriter kinesis) {
+    public S3Results(CompressionWriter compressionWriter, KinesisProducerWriter kinesis, ThresholdMonitor thresholdMonitor) {
         this.compressionWriter = compressionWriter;
         this.kinesis = kinesis;
+        this.thresholdMonitor = thresholdMonitor;
     }
 
     void addSuccess(S3Payload payload, UploadResult result) {
         successes.incrementAndGet();
         logSuccess(payload.getRecords(), result);
+        thresholdMonitor.addBytes(payload.getGzipSize());
         ByteBuffer b = compressionWriter.compress(payload);
         kinesis.write(b);
     }

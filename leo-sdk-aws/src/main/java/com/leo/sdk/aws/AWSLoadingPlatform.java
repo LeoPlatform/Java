@@ -5,7 +5,7 @@ import com.leo.sdk.ExecutorManager;
 import com.leo.sdk.PlatformStream;
 import com.leo.sdk.SDKModule;
 import com.leo.sdk.aws.payload.CompressionWriter;
-import com.leo.sdk.aws.payload.StreamJsonPayload;
+import com.leo.sdk.aws.payload.S3JsonPayload;
 import com.leo.sdk.aws.s3.S3Results;
 import com.leo.sdk.aws.s3.S3TransferManager;
 import com.leo.sdk.aws.s3.S3Writer;
@@ -45,7 +45,7 @@ public interface AWSLoadingPlatform extends AWSPlatform {
 
     CompressionWriter kinesisCompression();
 
-    StreamJsonPayload streamJsonPayload();
+    S3JsonPayload s3JsonPayload();
 
     S3TransferManager s3TransferManager();
 
