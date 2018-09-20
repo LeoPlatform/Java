@@ -1,5 +1,6 @@
 package com.leo.sdk.aws.payload;
 
+import com.jcraft.jzlib.GZIPOutputStream;
 import com.leo.sdk.aws.s3.S3Payload;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.EventPayload;
@@ -19,21 +20,20 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.zip.GZIPOutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 
 @Singleton
-public final class JSDKGzipWriter implements CompressionWriter {
-    private static final Logger log = LoggerFactory.getLogger(JSDKGzipWriter.class);
+public final class JCraftGzipWriter implements CompressionWriter {
+    private static final Logger log = LoggerFactory.getLogger(JCraftGzipWriter.class);
 
     private static final String NEWLINE = "\n";
     private final StreamJsonPayload streamJson;
     private final ThresholdMonitor thresholdMonitor;
 
     @Inject
-    public JSDKGzipWriter(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
+    public JCraftGzipWriter(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
         this.streamJson = streamJson;
         this.thresholdMonitor = thresholdMonitor;
     }
@@ -104,7 +104,7 @@ public final class JSDKGzipWriter implements CompressionWriter {
     }
 
     private void toStream(String json, ByteArrayOutputStream byteStream) {
-        try (OutputStream os = new GZIPOutputStream(byteStream, true)) {
+        try (OutputStream os = new GZIPOutputStream(byteStream, 512, true)) {
             os.write(json.getBytes(UTF_8));
         } catch (IOException e) {
             throw new IllegalStateException("Could not compress payload", e);

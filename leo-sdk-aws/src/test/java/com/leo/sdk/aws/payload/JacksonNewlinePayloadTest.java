@@ -4,7 +4,6 @@ import com.leo.sdk.aws.DaggerAWSLoadingPlatform;
 import com.leo.sdk.bus.Bots;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.EventPayload;
-import com.leo.sdk.payload.StreamJsonPayload;
 import org.testng.Assert;
 
 import javax.json.Json;

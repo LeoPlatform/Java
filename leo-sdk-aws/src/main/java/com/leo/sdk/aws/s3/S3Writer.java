@@ -36,7 +36,7 @@ public final class S3Writer {
     private static final Logger log = LoggerFactory.getLogger(S3Writer.class);
 
     private static final DateTimeFormatter eidFormat = DateTimeFormatter
-            .ofPattern("'z/'uuuu'/'MM'/'dd'/'HH'/'mm'/'")
+            .ofPattern("uuuu'/'MM'/'dd'/'HH'/'mm")
             .withZone(UTC);
 
     private final long maxBatchAge;
@@ -183,7 +183,7 @@ public final class S3Writer {
         String queue = offset.getEvent();
         String formattedTime = eidFormat.format(time);
         String fileNumPad = padWithZeros(fileNum);
-        return String.format("bus/%s/%s%d-%s.gz", queue, formattedTime, time.toEpochMilli(), fileNumPad);
+        return String.format("bus/%s/z/%s/%d-%s.gz", queue, formattedTime, time.toEpochMilli(), fileNumPad);
     }
 
     private String padWithZeros(long value) {

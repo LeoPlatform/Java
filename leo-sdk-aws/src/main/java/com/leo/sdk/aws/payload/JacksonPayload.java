@@ -2,10 +2,10 @@ package com.leo.sdk.aws.payload;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr353.JSR353Module;
+import com.leo.sdk.aws.s3.S3Payload;
 import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.EventPayload;
-import com.leo.sdk.payload.StreamJsonPayload;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -36,6 +36,15 @@ public final class JacksonPayload implements StreamJsonPayload {
             return mapper.writeValueAsString(entityPayload);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to create JSON payload");
+        }
+    }
+
+    @Override
+    public String toJsonString(S3Payload s3Payload) {
+        try {
+            return mapper.writeValueAsString(s3Payload);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to create S3 JSON payload");
         }
     }
 

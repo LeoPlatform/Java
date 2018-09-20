@@ -13,7 +13,6 @@ import com.leo.sdk.aws.s3.S3TransferManager;
 import com.leo.sdk.aws.s3.S3Writer;
 import com.leo.sdk.bus.LoadingBot;
 import com.leo.sdk.config.ConnectorConfig;
-import com.leo.sdk.payload.StreamJsonPayload;
 import dagger.Module;
 import dagger.Provides;
 
@@ -72,7 +71,7 @@ final class AWSModule {
     @Singleton
     @Provides
     static CompressionWriter provideKinesisCompression(StreamJsonPayload streamJson, ThresholdMonitor thresholdMonitor) {
-        return new JSDKGzipWriter(streamJson, thresholdMonitor);
+        return new JCraftGzipWriter(streamJson, thresholdMonitor);
     }
 
     @Singleton
@@ -95,7 +94,7 @@ final class AWSModule {
 
     @Singleton
     @Provides
-    static S3Results provideS3Results(KinesisProducerWriter kinesis) {
-        return new S3Results(kinesis);
+    static S3Results provideS3Results(CompressionWriter compression, KinesisProducerWriter kinesis) {
+        return new S3Results(compression, kinesis);
     }
 }
