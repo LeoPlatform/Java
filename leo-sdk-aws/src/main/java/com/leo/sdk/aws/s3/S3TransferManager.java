@@ -126,12 +126,6 @@ public class S3TransferManager {
             running.set(false);
             resultsProcessor.addFailure(upload.getDescription(), e);
         }
-        lock.lock();
-        try {
-            newUpload.signalAll();
-        } finally {
-            lock.unlock();
-        }
     }
 
     StreamStats end() {
