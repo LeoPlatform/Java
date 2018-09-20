@@ -72,6 +72,10 @@ public final class KinesisProducerWriter {
         }
     }
 
+    public void flush() {
+        kinesis.flush();
+    }
+
     private UserRecordResult addRecord(ByteBuffer payload) {
         try {
             return kinesis.addUserRecord(stream, "0", payload).get();

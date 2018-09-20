@@ -62,6 +62,11 @@ public final class S3Queue implements AsyncWorkQueue {
         }
     }
 
+    @Override
+    public void flush() {
+        s3Writer.flush();
+    }
+
     private void add(EventPayload entity) {
         lock.lock();
         try {

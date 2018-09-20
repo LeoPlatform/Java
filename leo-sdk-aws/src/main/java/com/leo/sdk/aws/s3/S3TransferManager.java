@@ -80,7 +80,7 @@ public class S3TransferManager {
             try {
                 if (pendingUploads.isEmpty()) {
                     uploading.set(false);
-                    newUpload.await(100, MILLISECONDS);
+                    newUpload.await();
                     uploading.set(true);
                 }
             } catch (InterruptedException i) {
@@ -130,9 +130,16 @@ public class S3TransferManager {
 
     StreamStats end() {
         running.set(false);
+        lock.lock();
+        try {
+            newUpload.signalAll();
+        } finally {
+            lock.unlock();
+        }
         while (!pendingUploads.isEmpty() || uploading.get()) {
             lock.lock();
             try {
+                newUpload.signalAll();
                 newUpload.await(100, MILLISECONDS);
             } catch (InterruptedException e) {
                 log.warn("S3 transfer manager unexpectedly stopped");

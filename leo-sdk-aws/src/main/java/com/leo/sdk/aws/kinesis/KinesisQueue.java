@@ -67,6 +67,11 @@ public final class KinesisQueue implements AsyncWorkQueue {
     }
 
     @Override
+    public void flush() {
+        writer.flush();
+    }
+
+    @Override
     public StreamStats end() {
         running.set(false);
         signalBatch();

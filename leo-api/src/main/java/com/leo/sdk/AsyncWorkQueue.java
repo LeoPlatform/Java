@@ -8,6 +8,8 @@ import javax.inject.Singleton;
 public interface AsyncWorkQueue {
     void addEntity(EventPayload entity);
 
+    void flush();
+
     StreamStats end();
 
     TransferStyle style();

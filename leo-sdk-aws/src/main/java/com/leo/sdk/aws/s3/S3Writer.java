@@ -63,6 +63,10 @@ public final class S3Writer {
         }
     }
 
+    void flush() {
+        sendAll();
+    }
+
     private void add(FileSegment segment) {
         lock.lock();
         try {
