@@ -34,19 +34,19 @@ public final class TransferProxy implements AsyncWorkQueue {
 
     @Override
     public void addEntity(EventPayload entity) {
+        AsyncWorkQueue queue;
         if (thresholdMonitor.isFailover()) {
             if (!failover.getAndSet(true)) {
                 flushWorkQueue();
             }
-
-            workQueues.failoverQueue().addEntity(entity);
+            queue = workQueues.failoverQueue();
         } else {
             if (failover.getAndSet(false)) {
                 flushFailoverQueue();
             }
-
-            workQueues.workQueue().addEntity(entity);
+            queue = workQueues.workQueue();
         }
+        queue.addEntity(entity);
     }
 
     @Override
