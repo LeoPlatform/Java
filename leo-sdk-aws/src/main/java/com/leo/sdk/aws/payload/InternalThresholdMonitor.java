@@ -95,6 +95,7 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
                 lock.unlock();
             }
         } while (running.get());
+        failover.set(false);
     }
 
     private BigDecimal percentageOfThreshold(BigDecimal level) {

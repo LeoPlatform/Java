@@ -41,7 +41,7 @@ public class S3TransferManager {
     private final S3Results resultsProcessor;
     private final LoadingBot bot;
 
-    private final Queue<PendingUpload> pendingUploads = new LinkedList<>();
+    private final Queue<PendingS3Upload> pendingUploads = new LinkedList<>();
     private final AtomicBoolean running;
     private final AtomicBoolean uploading;
     private final Lock lock = new ReentrantLock();
@@ -62,7 +62,7 @@ public class S3TransferManager {
         CompletableFuture.runAsync(this::synchronousUpload, executorManager.get());
     }
 
-    void enqueue(PendingUpload pendingUpload) {
+    void enqueue(PendingS3Upload pendingUpload) {
         if (running.get()) {
             lock.lock();
             try {
@@ -72,6 +72,11 @@ public class S3TransferManager {
                 lock.unlock();
             }
         }
+    }
+
+    void flush() {
+        signalUploader();
+        awaitUploader();
     }
 
     private void synchronousUpload() {
@@ -99,7 +104,7 @@ public class S3TransferManager {
     }
 
     private void uploadNext() {
-        PendingUpload next;
+        PendingS3Upload next;
         lock.lock();
         try {
             next = pendingUploads.remove();
@@ -112,7 +117,7 @@ public class S3TransferManager {
         upload(next);
     }
 
-    private void upload(PendingUpload next) {
+    private void upload(PendingS3Upload next) {
         log.info("Beginning upload of {} to S3", next.filename());
         PutObjectRequest request = next.s3PutRequest(name);
         Upload upload = s3TransferManager.upload(request);
@@ -129,17 +134,18 @@ public class S3TransferManager {
     }
 
     StreamStats end() {
+        flush();
         running.set(false);
-        lock.lock();
-        try {
-            newUpload.signalAll();
-        } finally {
-            lock.unlock();
-        }
+        signalUploader();
+        s3TransferManager.shutdownNow();
+        return getStats();
+    }
+
+    private void awaitUploader() {
         while (!pendingUploads.isEmpty() || uploading.get()) {
+            signalUploader();
             lock.lock();
             try {
-                newUpload.signalAll();
                 newUpload.await(100, MILLISECONDS);
             } catch (InterruptedException e) {
                 log.warn("S3 transfer manager unexpectedly stopped");
@@ -148,8 +154,15 @@ public class S3TransferManager {
                 lock.unlock();
             }
         }
-        s3TransferManager.shutdownNow();
-        return getStats();
+    }
+
+    private void signalUploader() {
+        lock.lock();
+        try {
+            newUpload.signalAll();
+        } finally {
+            lock.unlock();
+        }
     }
 
     private AmazonS3 client(String awsProfile) {

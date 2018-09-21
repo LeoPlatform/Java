@@ -23,9 +23,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 
 import static com.leo.sdk.TransferStyle.STREAM;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.toCollection;
 
 @Singleton
 public final class KinesisQueue implements AsyncWorkQueue {
@@ -33,6 +35,7 @@ public final class KinesisQueue implements AsyncWorkQueue {
 
     private final long maxBatchAge;
     private final int maxBatchRecords;
+    private final long maxBatchSize;
     private final ExecutorManager executorManager;
     private final CompressionWriter compression;
     private final KinesisProducerWriter writer;
@@ -47,6 +50,7 @@ public final class KinesisQueue implements AsyncWorkQueue {
                         CompressionWriter compression, KinesisProducerWriter writer) {
         maxBatchAge = config.longValueOrElse("Stream.MaxBatchAge", 400L);
         maxBatchRecords = config.intValueOrElse("Stream.MaxBatchRecords", 1000);
+        maxBatchSize = config.longValueOrElse("Stream.MaxBatchSize", 1_048_576L);
         this.executorManager = executorManager;
         this.compression = compression;
         this.writer = writer;
@@ -145,7 +149,7 @@ public final class KinesisQueue implements AsyncWorkQueue {
         Set<EventPayload> toSend = drainToSet();
         Executor e = executorManager.get();
         CompletableFuture<Void> cf = CompletableFuture
-                .supplyAsync(() -> compression.compressWithOffsets(toSend), e)
+                .supplyAsync(() -> compressPayloads(toSend), e)
                 .thenAcceptAsync(this::toKinesis, e)
                 .thenRunAsync(this::removeCompleted, e);
         lock.lock();
@@ -156,12 +160,36 @@ public final class KinesisQueue implements AsyncWorkQueue {
         }
     }
 
-    private void toKinesis(FileSegment segment) {
-        Optional.of(segment)
+    private Queue<FileSegment> compressPayloads(Set<EventPayload> toSend) {
+        FileSegment compressedBatch = compression.compressWithOffsets(toSend);
+        if (compressedBatch.getOffset().getGzipSize() > maxBatchSize) {
+            log.warn("Compressed payload batch exceeds {} bytes", compressedBatch.getOffset().getGzipSize());
+            return toSend.parallelStream()
+                    .map(Collections::singletonList)
+                    .map(compression::compressWithOffsets)
+                    .peek(this::checkSize)
+                    .filter(s -> s.getOffset().getGzipSize() <= maxBatchSize)
+                    .collect(toCollection(LinkedList::new));
+        } else {
+            return Stream.of(compressedBatch)
+                    .collect(toCollection(LinkedList::new));
+        }
+    }
+
+    private void checkSize(FileSegment fileSegment) {
+        Long compressed = fileSegment.getOffset().getGzipSize();
+        if (compressed > maxBatchSize) {
+            log.error("Skipping {} byte payload which exceeds maximum of {} bytes", compressed, maxBatchSize);
+        }
+    }
+
+    private void toKinesis(Queue<FileSegment> segments) {
+        segments.stream()
+                .filter(Objects::nonNull)
                 .map(FileSegment::getSegment)
                 .filter(b -> b.length > 0)
                 .map(ByteBuffer::wrap)
-                .ifPresent(writer::write);
+                .forEachOrdered(writer::write);
     }
 
     private Set<EventPayload> drainToSet() {

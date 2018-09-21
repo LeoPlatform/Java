@@ -27,19 +27,22 @@ public final class TransferProxy implements AsyncWorkQueue {
     public TransferProxy(WorkQueues workQueues, ThresholdMonitor thresholdMonitor) {
         this.workQueues = workQueues;
         this.thresholdMonitor = thresholdMonitor;
+        if (workQueues.workQueue().style() == workQueues.failoverQueue().style()) {
+            thresholdMonitor.end();
+        }
     }
 
     @Override
     public void addEntity(EventPayload entity) {
         if (thresholdMonitor.isFailover()) {
             if (!failover.getAndSet(true)) {
-                workQueues.workQueue().flush();
+                flushWorkQueue();
             }
 
             workQueues.failoverQueue().addEntity(entity);
         } else {
             if (failover.getAndSet(false)) {
-                workQueues.failoverQueue().flush();
+                flushFailoverQueue();
             }
 
             workQueues.workQueue().addEntity(entity);
@@ -48,14 +51,27 @@ public final class TransferProxy implements AsyncWorkQueue {
 
     @Override
     public void flush() {
-        CompletableFuture<Void> cf1 = CompletableFuture.runAsync(() -> workQueues.workQueue().flush());
-        CompletableFuture<Void> cf2 = CompletableFuture.runAsync(() -> workQueues.failoverQueue().flush());
+        CompletableFuture<Void> cf1 = CompletableFuture.runAsync(this::flushFailoverQueue);
+        CompletableFuture<Void> cf2 = CompletableFuture.runAsync(this::flushWorkQueue);
         CompletableFuture.allOf(cf1, cf2)
                 .join();
+        log.info("Flushed all work queues");
+    }
+
+    private void flushWorkQueue() {
+        log.info("Flushing Kinesis payloads");
+        workQueues.workQueue().flush();
+    }
+
+    private void flushFailoverQueue() {
+        log.info("Flushing S3 uploads");
+        workQueues.failoverQueue().flush();
     }
 
     @Override
     public StreamStats end() {
+        log.info("Stopping transfer proxy");
+        flush();
         thresholdMonitor.end();
         return workQueues.endAll();
     }

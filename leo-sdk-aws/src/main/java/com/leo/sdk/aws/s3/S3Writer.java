@@ -22,6 +22,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.leo.sdk.aws.s3.S3BufferStyle.DISK;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -36,6 +37,7 @@ public final class S3Writer {
     private final long maxBatchAge;
     private final int maxBatchRecords;
     private final long maxRecordSize;
+    private final S3BufferStyle bufferStyle;
     private final S3TransferManager transferManager;
 
     private final Queue<FileSegment> payloads = new LinkedList<>();
@@ -49,6 +51,7 @@ public final class S3Writer {
         maxBatchAge = config.longValueOrElse("Storage.MaxBatchAge", 4000L);
         maxBatchRecords = config.intValueOrElse("Storage.MaxBatchRecords", 6000);
         maxRecordSize = config.longValueOrElse("Storage.MaxBatchSize", 5017600L);
+        bufferStyle = S3BufferStyle.fromName(config.valueOrElse("Storage.BufferStyle", "Memory"));
         this.transferManager = transferManager;
         running = new AtomicBoolean(true);
         CompletableFuture.runAsync(this::asyncBatchSend, executorManager.get());
@@ -64,7 +67,9 @@ public final class S3Writer {
     }
 
     void flush() {
+        signalBatch();
         sendAll();
+        transferManager.flush();
     }
 
     private void add(FileSegment segment) {
@@ -78,9 +83,9 @@ public final class S3Writer {
 
     StreamStats end() {
         log.info("Stopping S3 writer");
+        flush();
         running.set(false);
         signalBatch();
-        sendAll();
         log.info("Stopped S3 writer");
         return transferManager.end();
     }
@@ -132,8 +137,11 @@ public final class S3Writer {
 
     private void transferAsync(long fileCount, Instant now, Queue<FileSegment> segments, StorageEventOffset o) {
         String fileName = fileName(o, now, fileCount);
-        PendingUpload pendingUpload = new PendingUpload(fileName, segments);
-        transferManager.enqueue(pendingUpload);
+        if (bufferStyle == DISK) {
+            transferManager.enqueue(new PendingFileUpload(fileName, segments));
+        } else {
+            transferManager.enqueue(new PendingMemoryUpload(fileName, segments));
+        }
     }
 
     private void sendAll() {

@@ -47,7 +47,7 @@ public final class S3Queue implements AsyncWorkQueue {
         this.executorManager = executorManager;
         this.s3Writer = s3Writer;
         running = new AtomicBoolean(true);
-        pendingWrites.add(CompletableFuture.runAsync(this::asyncBatchSend, executorManager.get()));
+        CompletableFuture.runAsync(this::asyncBatchSend, executorManager.get());
     }
 
     @Override
@@ -64,6 +64,9 @@ public final class S3Queue implements AsyncWorkQueue {
 
     @Override
     public void flush() {
+        signalBatch();
+        sendAll();
+        completePendingWrites();
         s3Writer.flush();
     }
 
@@ -93,10 +96,9 @@ public final class S3Queue implements AsyncWorkQueue {
 
     @Override
     public StreamStats end() {
+        flush();
         running.set(false);
         signalBatch();
-        sendAll();
-        completePendingWrites();
         return s3Writer.end();
     }
 

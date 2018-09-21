@@ -72,8 +72,8 @@ public final class KinesisProducerWriter {
         }
     }
 
-    public void flush() {
-        kinesis.flush();
+    void flush() {
+        kinesis.flushSync();
     }
 
     private UserRecordResult addRecord(ByteBuffer payload) {

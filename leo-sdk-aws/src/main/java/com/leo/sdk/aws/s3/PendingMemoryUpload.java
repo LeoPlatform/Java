@@ -20,20 +20,23 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.stream.Collectors.toList;
 
-class PendingUpload {
+public class PendingMemoryUpload implements PendingS3Upload {
+
     private final String fileName;
     private final Queue<FileSegment> segments;
 
-    PendingUpload(String fileName, Queue<FileSegment> segments) {
+    public PendingMemoryUpload(String fileName, Queue<FileSegment> segments) {
         this.fileName = fileName;
         this.segments = segments;
     }
 
-    String filename() {
+    @Override
+    public String filename() {
         return fileName;
     }
 
-    PutObjectRequest s3PutRequest(String name) {
+    @Override
+    public PutObjectRequest s3PutRequest(String name) {
         byte[] file = concat(segments);
 
         ObjectMetadata meta = new ObjectMetadata();
@@ -45,7 +48,8 @@ class PendingUpload {
         return new PutObjectRequest(name, fileName, new ByteArrayInputStream(file), meta);
     }
 
-    S3Payload s3Payload(UploadResult result, String botName) {
+    @Override
+    public S3Payload s3Payload(UploadResult result, String botName) {
         String queue = getEvent(segments);
         Long gzipSize = segments.stream().map(FileSegment::getOffset).mapToLong(StorageEventOffset::getGzipSize).sum();
         Long size = segments.stream().map(FileSegment::getOffset).mapToLong(StorageEventOffset::getSize).sum();
@@ -71,10 +75,10 @@ class PendingUpload {
         return segments.stream()
                 .map(FileSegment::getOffset)
                 .map(o -> {
-                    Long start = startAccumulator.getAndAdd(o.getRecords());
-                    Long end = start + o.getRecords() - 1;
                     Long offset = offsetAccumulator.getAndAdd(o.getSize());
                     Long gzipOffset = gzipOffsetAccumulator.getAndAdd(o.getGzipSize());
+                    Long start = startAccumulator.getAndAdd(o.getRecords());
+                    Long end = start + o.getRecords() - 1;
                     return new StorageEventOffset(o.getEvent(), start, end, o.getSize(), offset, o.getRecords(), o.getGzipSize(), gzipOffset);
                 })
                 .collect(toList());
@@ -91,5 +95,4 @@ class PendingUpload {
                 .forEachOrdered(b1 -> System.arraycopy(b1, 0, all, pos.getAndAdd(b1.length), b1.length));
         return all;
     }
-
 }
