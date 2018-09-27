@@ -139,12 +139,17 @@ public final class KinesisProducerWriter {
     }
 
     private AWSCredentialsProvider credentials(ConnectorConfig config) {
-        return Optional.of(config.valueOrElse("AwsProfile", ""))
-                .map(String::trim)
-                .filter(profile -> !profile.isEmpty())
-                .map(ProfileCredentialsProvider::new)
-                .map(AWSCredentialsProvider.class::cast)
-                .orElse(DefaultAWSCredentialsProviderChain.getInstance());
+        try {
+            return Optional.of(config.valueOrElse("AwsProfile", ""))
+                    .map(String::trim)
+                    .filter(profile -> !profile.isEmpty())
+                    .map(ProfileCredentialsProvider::new)
+                    .filter(p -> p.getCredentials() != null)
+                    .map(AWSCredentialsProvider.class::cast)
+                    .orElse(DefaultAWSCredentialsProviderChain.getInstance());
+        } catch (Exception e) {
+            return DefaultAWSCredentialsProviderChain.getInstance();
+        }
     }
 
     private StreamStats getStats() {
