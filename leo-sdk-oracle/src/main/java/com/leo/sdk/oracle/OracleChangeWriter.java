@@ -1,7 +1,7 @@
 package com.leo.sdk.oracle;
 
 import com.leo.sdk.ExecutorManager;
-import com.leo.sdk.PlatformStream;
+import com.leo.sdk.LoadingStream;
 import com.leo.sdk.StreamStats;
 import com.leo.sdk.payload.EventPayload;
 import oracle.jdbc.dcn.DatabaseChangeEvent;
@@ -38,7 +38,7 @@ import static java.util.stream.Collectors.toSet;
 public final class OracleChangeWriter implements DatabaseChangeListener {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeWriter.class);
 
-    private final PlatformStream stream;
+    private final LoadingStream stream;
     private final ExecutorManager executorManager;
     private final BlockingQueue<DatabaseChangeEvent> payloads = new LinkedBlockingQueue<>();
     private final Queue<CompletableFuture<Void>> pendingWrites = new LinkedList<>();
@@ -47,7 +47,7 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
     private final Condition changedRows = lock.newCondition();
 
     @Inject
-    public OracleChangeWriter(PlatformStream stream, ExecutorManager executorManager) {
+    public OracleChangeWriter(LoadingStream stream, ExecutorManager executorManager) {
         this.stream = stream;
         this.executorManager = executorManager;
         this.running = new AtomicBoolean(true);

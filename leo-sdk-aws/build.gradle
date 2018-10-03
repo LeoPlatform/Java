@@ -1,6 +1,10 @@
-apply plugin: 'maven-publish'
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+}
 
-version = '1.0.0-SNAPSHOT'
+version = '1.0.0'
 
 dependencies {
     compile(
@@ -14,8 +18,20 @@ dependencies {
     )
 }
 
-task sourcesJar(type: Jar) {
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
     from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.getDestinationDir()
+}
+
+artifacts {
+    archives jar
+    archives sourcesJar
+    archives javadocJar
 }
 
 test {
@@ -32,20 +48,52 @@ test {
 publishing {
     publications {
         sdkAws(MavenPublication) {
+            pom {
+                name = 'LEO AWS SDK'
+                description = 'AWS connector for LEO Insights platform'
+                url = 'https://github.com/LeoPlatform/Java'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://github.com/LeoPlatform/Java/blob/master/LICENSE'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'chamont'
+                        name = 'Monty Charlton'
+                        email = 'monty@fullmonty.org'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/LeoPlatform/Java.git'
+                    developerConnection = 'scm:git:https://github.com/LeoPlatform/Java.git'
+                    url = 'https://github.com/LeoPlatform/Java'
+                }
+            }
             from components.java
             artifact sourcesJar {
                 classifier 'sources'
             }
-        }
-    }
-    repositories {
-        maven {
-            def baseUrl = 'https://repo.fullmonty.org/repository/'
-            url baseUrl + (project.version.endsWith('-SNAPSHOT') ? 'maven-snapshots/' : 'maven-releases/')
-            credentials {
-                username nexus_user
-                password nexus_password
+            artifact javadocJar {
+                classifier = 'javadoc'
             }
         }
     }
+    repositories {
+        mavenLocal()
+        mavenCentral()
+//        maven {
+//            def baseUrl = 'https://repo.fullmonty.org/repository/'
+//            url baseUrl + (project.version.endsWith('-SNAPSHOT') ? 'maven-snapshots/' : 'maven-releases/')
+//            credentials {
+//                username nexus_user
+//                password nexus_password
+//            }
+//        }
+    }
+}
+
+signing {
+    sign configurations.archives
 }

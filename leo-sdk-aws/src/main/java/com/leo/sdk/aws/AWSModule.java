@@ -2,7 +2,8 @@ package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.ExecutorManager;
-import com.leo.sdk.PlatformStream;
+import com.leo.sdk.LoadingStream;
+import com.leo.sdk.OffloadingStream;
 import com.leo.sdk.aws.kinesis.KinesisProducerWriter;
 import com.leo.sdk.aws.kinesis.KinesisQueue;
 import com.leo.sdk.aws.kinesis.KinesisResults;
@@ -24,8 +25,14 @@ import javax.inject.Singleton;
 final class AWSModule {
     @Singleton
     @Provides
-    static PlatformStream providePlatformStream(@Named("Proxy") AsyncWorkQueue transferProxy, ExecutorManager executorManager) {
-        return new AWSStream(transferProxy, executorManager);
+    static LoadingStream provideLoadingStream(@Named("Proxy") AsyncWorkQueue transferProxy, ExecutorManager executorManager) {
+        return new AWSLoadingStream(transferProxy, executorManager);
+    }
+
+    @Singleton
+    @Provides
+    static OffloadingStream provideOffloadingStream(ExecutorManager executorManager) {
+        return new AWSOffloadingStream(executorManager);
     }
 
     @Singleton

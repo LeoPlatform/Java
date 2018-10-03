@@ -95,7 +95,7 @@ public class SimpleChangeListenerTest {
 
     @Test
     public void testHashCode() {
-        Set<ChangeDestination> cl = new HashSet<>() {{
+        Set<ChangeDestination> cl = new HashSet<ChangeDestination>() {{
             add(new SimpleChangeListener("abcdefghij", 65012));
             add(new SimpleChangeListener("abcdefghij", 65012));
         }};

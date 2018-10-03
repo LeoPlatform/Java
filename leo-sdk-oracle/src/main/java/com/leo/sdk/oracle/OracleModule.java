@@ -1,7 +1,7 @@
 package com.leo.sdk.oracle;
 
 import com.leo.sdk.ExecutorManager;
-import com.leo.sdk.PlatformStream;
+import com.leo.sdk.LoadingStream;
 import dagger.Module;
 import dagger.Provides;
 
@@ -23,7 +23,7 @@ public final class OracleModule {
 
     @Singleton
     @Provides
-    public static OracleChangeWriter provideDatabaseChangeListener(PlatformStream stream, ExecutorManager executorManager) {
+    public static OracleChangeWriter provideDatabaseChangeListener(LoadingStream stream, ExecutorManager executorManager) {
         return new OracleChangeWriter(stream, executorManager);
     }
 }

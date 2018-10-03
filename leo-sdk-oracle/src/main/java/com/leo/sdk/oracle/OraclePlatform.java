@@ -1,7 +1,7 @@
 package com.leo.sdk.oracle;
 
 import com.leo.sdk.ExecutorManager;
-import com.leo.sdk.PlatformStream;
+import com.leo.sdk.LoadingStream;
 import com.leo.sdk.SDKModule;
 import com.leo.sdk.SDKPlatform;
 import dagger.BindsInstance;
@@ -23,7 +23,7 @@ public interface OraclePlatform extends SDKPlatform {
         Builder executorManager(ExecutorManager executorManager);
 
         @BindsInstance
-        Builder platformStream(PlatformStream stream);
+        Builder loadingStream(LoadingStream stream);
 
         @BindsInstance
         Builder changeSource(OracleChangeSource source);

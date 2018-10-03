@@ -2,9 +2,8 @@ package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.ExecutorManager;
-import com.leo.sdk.PlatformStream;
+import com.leo.sdk.LoadingStream;
 import com.leo.sdk.StreamStats;
-import com.leo.sdk.payload.EntityPayload;
 import com.leo.sdk.payload.EventPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-import javax.json.Json;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -22,15 +20,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 @Singleton
-public final class AWSStream implements PlatformStream {
-    private static final Logger log = LoggerFactory.getLogger(AWSStream.class);
+public final class AWSLoadingStream implements LoadingStream {
+    private static final Logger log = LoggerFactory.getLogger(AWSLoadingStream.class);
 
     private final AsyncWorkQueue transferProxy;
     private final ExecutorManager executorManager;
     private final AtomicBoolean streaming;
 
     @Inject
-    public AWSStream(@Named("Proxy") AsyncWorkQueue transferProxy, ExecutorManager executorManager) {
+    public AWSLoadingStream(@Named("Proxy") AsyncWorkQueue transferProxy, ExecutorManager executorManager) {
         this.transferProxy = transferProxy;
         this.executorManager = executorManager;
         this.streaming = new AtomicBoolean(true);
@@ -49,13 +47,8 @@ public final class AWSStream implements PlatformStream {
     }
 
     @Override
-    public EventPayload enhance(EntityPayload payload) {
-        return () -> Json.createObjectBuilder().build();
-    }
-
-    @Override
-    public Stream<EntityPayload> offload() {
-        return Stream.empty();
+    public void load(Stream<EventPayload> payload) {
+        payload.forEachOrdered(this::load);
     }
 
     @Override

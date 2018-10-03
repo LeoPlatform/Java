@@ -2,7 +2,7 @@ package com.leo.sdk.aws;
 
 import com.leo.sdk.AsyncWorkQueue;
 import com.leo.sdk.ExecutorManager;
-import com.leo.sdk.PlatformStream;
+import com.leo.sdk.LoadingStream;
 import com.leo.sdk.SDKModule;
 import com.leo.sdk.aws.payload.CompressionWriter;
 import com.leo.sdk.aws.payload.S3JsonPayload;
@@ -30,7 +30,7 @@ public interface AWSLoadingPlatform extends AWSPlatform {
         AWSLoadingPlatform build();
     }
 
-    PlatformStream platformStream();
+    LoadingStream loadingStream();
 
     WorkQueues workQueues();
 
