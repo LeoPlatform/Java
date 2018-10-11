@@ -5,9 +5,9 @@
             <package name=".*"/>
         </packages>
         <classes>
-            <class name="com.leo.sdk.config.FileConfigTest"/>
-            <class name="com.leo.sdk.payload.EntityPayloadTest"/>
-            <class name="com.leo.schema.SimpleChangeListenerTest"/>
+            <class name="io.leoplatform.sdk.config.FileConfigTest"/>
+            <class name="io.leoplatform.sdk.payload.EntityPayloadTest"/>
+            <class name="io.leoplatform.schema.SimpleChangeListenerTest"/>
         </classes>
     </test>
 </suite>

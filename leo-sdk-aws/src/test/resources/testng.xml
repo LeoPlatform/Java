@@ -5,8 +5,8 @@
             <package name=".*"/>
         </packages>
         <classes>
-            <class name="com.leo.sdk.aws.payload.JacksonNewlinePayloadTest"/>
-            <class name="com.leo.sdk.aws.payload.JSDKGzipPayloadTest"/>
+            <class name="io.leoplatform.sdk.aws.payload.JacksonNewlinePayloadTest"/>
+            <class name="io.leoplatform.sdk.aws.payload.JSDKGzipPayloadTest"/>
         </classes>
     </test>
 </suite>
