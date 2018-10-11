@@ -1,9 +1,11 @@
 package io.leoplatform.sdk.aws.payload;
 
-import io.leoplatform.sdk.aws.DaggerAWSLoadingPlatform;
+import io.leoplatform.sdk.aws.s3.S3LocationPayload;
+import io.leoplatform.sdk.aws.s3.S3Payload;
 import io.leoplatform.sdk.bus.Bots;
-import io.leoplatform.sdk.payload.EventPayload;
-import org.testng.annotations.BeforeClass;
+import io.leoplatform.sdk.bus.LoadingBot;
+import io.leoplatform.sdk.payload.*;
+import org.testng.annotations.Test;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -21,48 +23,33 @@ import java.util.Objects;
 import java.util.zip.GZIPInputStream;
 
 import static java.time.temporal.ChronoUnit.MINUTES;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
-public class JSDKGzipPayloadTest {
+public class JSDKGzipWriterTest {
 
-    private CompressionWriter compressor;
+    private final LoadingBot bot = Bots.ofLoading("loading-bot-name", "queue-name");
+    private S3JsonPayload s3JsonPayload = new JacksonPayload(bot);
+    private JSDKGzipWriter writer = new JSDKGzipWriter(s3JsonPayload, nullThresholdMonitor());
 
-    @BeforeClass
-    void setUp() {
-        System.setProperty("JAVA_ENV", "DevBus");
-        compressor = null;
-        DaggerAWSLoadingPlatform.builder()
-                .loadingBot(Bots.ofLoading("my-bot", "my-queue"))
-                .build()
-                .kinesisCompression();
-    }
-
-    //    @Test
+    @Test
     public void testCompressLen() {
-//        ByteBuffer compressed = compressor.compress(eventPayload(Instant.now()));
-//        int len = compressed.limit();
-//        assertTrue(len > 800 && len < 900, "Invalid compressed payload length");
+        ByteBuffer bb = writer.compress(s3Payload());
+        assertTrue(bb.array().length > 150 && bb.array().length < 250, "Invalid compressed payload length");
     }
 
-    //    @Test
-    public void testSymmetric() {
+    @Test
+    public void testSymmetricS3Compress() {
+        ByteBuffer bb = writer.compress(s3Payload());
+        JsonObject inflated = inflate(bb);
+        assertEquals(inflated.getJsonString("event").getString(), "my_event", "Invalid event on symmetric inflate");
+    }
 
-        Instant now = Instant.now();
-        List<EventPayload> expectedPayload = Collections.singletonList(eventPayload(now));
-
-//        ByteBuffer compressedPayload = compressor.compress(expectedPayload);
-//        EventPayload inflatedPayload = eventPayload(now, inflate(compressedPayload));
-
-//        String expectedId = expectedPayload.getPayload()
-//                .getJsonObject("fullobj")
-//                .getJsonString("_id")
-//                .getString();
-//        String actualId = inflatedPayload.getPayload()
-//                .getJsonObject("payload")
-//                .getJsonObject("fullobj")
-//                .getJsonString("_id")
-//                .getString();
-//
-//        assertEquals(actualId, expectedId, "Compressed and inflated payload mismatch");
+    @Test
+    public void testSymmetricOffsetCompress() {
+        FileSegment fs = writer.compressWithOffsets(Collections.singletonList(new SimplePayload(simpleJson())));
+        JsonObject inflated = inflate(ByteBuffer.wrap(fs.getSegment()));
+        assertEquals(inflated.getJsonObject("payload").getJsonString("op").getString(), "update", "Invalid op on symmetric offset inflate");
     }
 
     private JsonObject inflate(ByteBuffer compressed) {
@@ -73,27 +60,10 @@ public class JSDKGzipPayloadTest {
         }
     }
 
-    private EventPayload eventPayload(Instant now) {
-        return eventPayload(now, simpleJson());
-    }
-
-    private EventPayload eventPayload(Instant time, JsonObject simpleJson) {
-        return simplePayload(time, simpleJson);
-//        return new EntityPayload(simplePayload(time, simpleJson), new SimpleLoadingBot("my-bot", "my-queue"));
-    }
-
-    private EventPayload simplePayload(Instant time, JsonObject simpleJson) {
-        return new EventPayload() {
-            @Override
-            public Instant eventTime() {
-                return time;
-            }
-
-            @Override
-            public JsonObject payload() {
-                return simpleJson;
-            }
-        };
+    private S3Payload s3Payload() {
+        return new S3Payload("my_event", "b", "c", new S3LocationPayload("d", "e"),
+                Collections.singletonList(new StorageEventOffset("f", 1L, 2L, 3L, 4L, 5L, 6L, 7L)),
+                8L, 9L, 10L, new StorageStats(Collections.singletonMap("g", new StorageUnits(11L))));
     }
 
     private JsonObject simpleJson() {
@@ -147,5 +117,22 @@ public class JSDKGzipPayloadTest {
 
     private long randomLong(long min, long max) {
         return min + (long) (Math.random() * (max - min));
+    }
+
+    private ThresholdMonitor nullThresholdMonitor() {
+        return new ThresholdMonitor() {
+            @Override
+            public void addBytes(Long bytes) {
+            }
+
+            @Override
+            public boolean isFailover() {
+                return false;
+            }
+
+            @Override
+            public void end() {
+            }
+        };
     }
 }
