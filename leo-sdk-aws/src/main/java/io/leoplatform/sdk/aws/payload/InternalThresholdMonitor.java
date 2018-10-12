@@ -47,6 +47,7 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
     @Override
     public void addBytes(Long bytes) {
         currentLevel.addAndGet(bytes);
+        signalAll();
     }
 
     @Override
@@ -57,6 +58,10 @@ public class InternalThresholdMonitor implements ThresholdMonitor {
     @Override
     public void end() {
         running.set(false);
+        signalAll();
+    }
+
+    private void signalAll() {
         lock.lock();
         try {
             thresholdCheck.signalAll();

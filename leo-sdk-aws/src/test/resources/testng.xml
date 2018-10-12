@@ -7,6 +7,7 @@
         <classes>
             <class name="io.leoplatform.sdk.aws.payload.JacksonPayloadTest"/>
             <class name="io.leoplatform.sdk.aws.payload.JSDKGzipWriterTest"/>
+            <class name="io.leoplatform.sdk.aws.payload.InternalThresholdMonitorTest"/>
         </classes>
     </test>
 </suite>
