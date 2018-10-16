@@ -102,5 +102,5 @@ publishing {
 }
 
 signing {
-    sign configurations.archives
+    sign publishing.publications.sdkAws
 }
