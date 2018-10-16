@@ -78,8 +78,7 @@ public final class KinesisProducerWriter {
 
     private UserRecordResult addRecord(ByteBuffer payload) {
         try {
-            String s = System.currentTimeMillis() % 2 == 0 ? this.stream : stream + "xyz";
-            return kinesis.addUserRecord(s, "0", payload).get();
+            return kinesis.addUserRecord(stream, "0", payload).get();
         } catch (Exception e) {
             resultsProcessor.addFailure(e);
             throw new RuntimeException("Error adding record");
