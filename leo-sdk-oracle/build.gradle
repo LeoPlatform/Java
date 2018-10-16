@@ -4,7 +4,7 @@ plugins {
     id 'signing'
 }
 
-version = '1.0.0'
+version = '1.0.0-SNAPSHOT'
 
 dependencies {
     compile(
@@ -93,15 +93,22 @@ publishing {
     }
     repositories {
         mavenLocal()
-        mavenCentral()
-//        maven {
-//            def baseUrl = 'https://repo.fullmonty.org/repository/'
-//            url baseUrl + (project.version.endsWith('-SNAPSHOT') ? 'maven-snapshots/' : 'maven-releases/')
-//            credentials {
-//                username nexus_user
-//                password nexus_password
-//            }
-//        }
+        maven {
+            name = 'External'
+            url external_url
+            credentials {
+                username external_user
+                password external_password
+            }
+        }
+        maven {
+            name = 'Internal'
+            url internal_url
+            credentials {
+                username internal_user
+                password internal_password
+            }
+        }
     }
 }
 

@@ -33,7 +33,7 @@ allprojects {
         mavenLocal()
         mavenCentral()
         maven {
-            url 'https://repo.fullmonty.org/repository/maven-public/'
+            url internal_url
         }
     }
 }
