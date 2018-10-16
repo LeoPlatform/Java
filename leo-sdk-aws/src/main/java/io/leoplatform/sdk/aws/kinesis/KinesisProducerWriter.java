@@ -78,10 +78,11 @@ public final class KinesisProducerWriter {
 
     private UserRecordResult addRecord(ByteBuffer payload) {
         try {
-            return kinesis.addUserRecord(stream, "0", payload).get();
+            String s = System.currentTimeMillis() % 2 == 0 ? this.stream : stream + "xyz";
+            return kinesis.addUserRecord(s, "0", payload).get();
         } catch (Exception e) {
             resultsProcessor.addFailure(e);
-            return null;
+            throw new RuntimeException("Error adding record");
         }
     }
 
@@ -122,7 +123,9 @@ public final class KinesisProducerWriter {
             long inFlight = pendingWrites.parallelStream()
                     .map(CompletableFuture::join)
                     .count();
-            log.info("Waited for {} Kinesis upload{} to complete", inFlight, inFlight == 1 ? "" : "s");
+            if (inFlight > 0) {
+                log.info("Waited for {} Kinesis upload{} to complete", inFlight, inFlight == 1 ? "" : "s");
+            }
         } finally {
             lock.unlock();
         }

@@ -137,7 +137,9 @@ public final class S3Queue implements AsyncWorkQueue {
             long inFlight = pendingWrites.parallelStream()
                     .filter(w -> !w.isDone())
                     .count();
-            log.info("Waiting for {} S3 background task{} to stop", inFlight, inFlight == 1 ? "" : "s");
+            if (inFlight > 0) {
+                log.info("Waiting for {} S3 background task{} to stop", inFlight, inFlight == 1 ? "" : "s");
+            }
         } finally {
             lock.unlock();
         }

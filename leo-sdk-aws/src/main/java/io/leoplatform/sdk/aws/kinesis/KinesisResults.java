@@ -34,7 +34,8 @@ public final class KinesisResults {
 
     void addFailure(Exception e) {
         failures.incrementAndGet();
-        log.error("Unable to add payload to Kinesis", e);
+        log.error("Unable to add payload to Kinesis: {}", e.getMessage());
+        log.debug("Kinesis write error", e);
     }
 
     private void log(UserRecordResult r) {
