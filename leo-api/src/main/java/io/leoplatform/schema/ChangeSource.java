@@ -7,4 +7,6 @@ public interface ChangeSource {
     Connection connection();
 
     List<String> tables();
+
+    void end();
 }

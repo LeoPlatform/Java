@@ -2,20 +2,18 @@ package io.leoplatform.sdk.oracle;
 
 import dagger.BindsInstance;
 import dagger.Component;
+import io.leoplatform.schema.ChangeSource;
 import io.leoplatform.sdk.ExecutorManager;
 import io.leoplatform.sdk.LoadingStream;
 import io.leoplatform.sdk.SDKModule;
 import io.leoplatform.sdk.SDKPlatform;
+import io.leoplatform.sdk.changes.SchemaChangeQueue;
 
 import javax.inject.Singleton;
 
 @Singleton
 @Component(modules = {OracleModule.class, SDKModule.class})
 public interface OraclePlatform extends SDKPlatform {
-
-    OracleChangeRegistrar oracleChangeRegistrar();
-
-    OracleChangeLoader oracleChangeLoader();
 
     @Component.Builder
     interface Builder {
@@ -25,11 +23,18 @@ public interface OraclePlatform extends SDKPlatform {
         @BindsInstance
         Builder loadingStream(LoadingStream stream);
 
-        @BindsInstance
-        Builder changeSource(OracleChangeSource source);
-
         OraclePlatform build();
     }
 
-    OracleChangeWriter databaseChangeListener();
+    SchemaChangeQueue changeQueue();
+
+    OracleChangeSource oracleChangeSource();
+
+    ChangeSource changeSource();
+
+    OracleChangeRegistrar oracleChangeRegistrar();
+
+    OracleChangeLoader oracleChangeLoader();
+
+    OracleChangeWriter oracleChangeWriter();
 }

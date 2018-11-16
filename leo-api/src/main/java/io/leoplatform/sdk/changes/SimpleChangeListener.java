@@ -1,4 +1,6 @@
-package io.leoplatform.schema;
+package io.leoplatform.sdk.changes;
+
+import io.leoplatform.schema.ChangeDestination;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -6,7 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class SimpleChangeListener implements ChangeDestination {
-    static final int DEFAULT_PORT = 47632;
+    public static final int DEFAULT_PORT = 47632;
 
     private final String host;
     private final Integer port;

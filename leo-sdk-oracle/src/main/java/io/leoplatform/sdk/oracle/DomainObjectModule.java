@@ -4,16 +4,13 @@ import dagger.Module;
 import dagger.Provides;
 import io.leoplatform.schema.ChangeSource;
 import io.leoplatform.sdk.ExecutorManager;
-import io.leoplatform.sdk.changes.AsyncChangeQueue;
-import io.leoplatform.sdk.changes.ChangeReactor;
-import io.leoplatform.sdk.changes.PooledChangeSource;
-import io.leoplatform.sdk.changes.SchemaChangeQueue;
+import io.leoplatform.sdk.changes.*;
 
 import javax.inject.Named;
 import javax.inject.Singleton;
 
 @Module
-public final class OracleModule {
+public final class DomainObjectModule {
     @Singleton
     @Provides
     public static OracleChangeSource provideOracleChangeSource() {
@@ -40,13 +37,21 @@ public final class OracleModule {
 
     @Singleton
     @Provides
-    public static OracleChangeWriter provideOracleChangeWriter(SchemaChangeQueue changeQueue, ExecutorManager executorManager) {
-        return new OracleChangeWriter(changeQueue, executorManager);
+    @Named("DomainObjectResolver")
+    public static DomainResolver provideDomainObjectResolver(ChangeSource source, JsonDomainData domainData) {
+        return new OracleRowResolver(source, domainData);
     }
 
     @Singleton
     @Provides
-    public static SchemaChangeQueue provideSchemaChangeQueue(@Named("LeoChangeReactor") ChangeReactor changeReactor, ExecutorManager executorManager) {
+    @Named("DomainObjectReactor")
+    public static ChangeReactor provideDomainObjectReactor(@Named("DomainObjectResolver") DomainResolver domainResolver, PayloadWriter payloadWriter) {
+        return new DomainObjectPayload(domainResolver, payloadWriter);
+    }
+
+    @Singleton
+    @Provides
+    public static SchemaChangeQueue provideSchemaChangeQueue(@Named("DomainObjectReactor") ChangeReactor changeReactor, ExecutorManager executorManager) {
         return new AsyncChangeQueue(changeReactor, executorManager);
     }
 }

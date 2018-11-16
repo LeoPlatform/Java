@@ -1,6 +1,8 @@
 package io.leoplatform.sdk.oracle;
 
 import oracle.jdbc.OracleConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.util.*;
@@ -8,6 +10,7 @@ import java.util.*;
 import static java.util.stream.Collectors.toList;
 
 public final class SimpleOracleChangeSource implements OracleChangeSource {
+    private static final Logger log = LoggerFactory.getLogger(SimpleOracleChangeSource.class);
 
     private final OracleConnection conn;
     private final List<String> tables;
@@ -48,5 +51,14 @@ public final class SimpleOracleChangeSource implements OracleChangeSource {
     @Override
     public List<String> tables() {
         return tables;
+    }
+
+    @Override
+    public void end() {
+        try {
+            conn.close();
+        } catch (SQLException e) {
+            log.warn("Could not close connection", e);
+        }
     }
 }

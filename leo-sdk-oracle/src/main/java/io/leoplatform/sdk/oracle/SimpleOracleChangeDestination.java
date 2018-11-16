@@ -1,7 +1,7 @@
 package io.leoplatform.sdk.oracle;
 
 import io.leoplatform.schema.ChangeDestination;
-import io.leoplatform.schema.SimpleChangeListener;
+import io.leoplatform.sdk.changes.SimpleChangeListener;
 
 import java.util.Properties;
 

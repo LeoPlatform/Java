@@ -25,12 +25,14 @@ import javax.inject.Singleton;
 final class AWSModule {
     @Singleton
     @Provides
+    @Named("AwsLoadingStream")
     static LoadingStream provideLoadingStream(@Named("Proxy") AsyncWorkQueue transferProxy, ExecutorManager executorManager) {
         return new AWSLoadingStream(transferProxy, executorManager);
     }
 
     @Singleton
     @Provides
+    @Named("AwsOffloadingStream")
     static OffloadingStream provideOffloadingStream(ExecutorManager executorManager) {
         return new AWSOffloadingStream(executorManager);
     }

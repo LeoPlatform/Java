@@ -1,5 +1,6 @@
 package io.leoplatform.schema;
 
+import io.leoplatform.sdk.changes.SimpleChangeListener;
 import org.testng.annotations.Test;
 
 import java.net.InetAddress;
@@ -7,7 +8,7 @@ import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.Set;
 
-import static io.leoplatform.schema.SimpleChangeListener.DEFAULT_PORT;
+import static io.leoplatform.sdk.changes.SimpleChangeListener.DEFAULT_PORT;
 import static org.testng.Assert.*;
 
 public class SimpleChangeListenerTest {

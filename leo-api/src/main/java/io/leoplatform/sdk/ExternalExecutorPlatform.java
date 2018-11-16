@@ -8,7 +8,7 @@ import javax.inject.Singleton;
 import java.util.concurrent.Executor;
 
 @Singleton
-@Component(modules = {ExternalExecutorModule.class, SDKModule.class})
+@Component(modules = {SDKModule.class})
 public interface ExternalExecutorPlatform extends SDKPlatform {
     @Component.Builder
     interface Builder {
@@ -18,6 +18,6 @@ public interface ExternalExecutorPlatform extends SDKPlatform {
         ExternalExecutorPlatform build();
     }
 
-    @Named("External")
+    @Named("ExternalExecutor")
     ExecutorManager executorManager();
 }

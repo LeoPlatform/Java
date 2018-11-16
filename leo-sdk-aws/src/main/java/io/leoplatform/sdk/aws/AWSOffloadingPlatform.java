@@ -7,6 +7,7 @@ import io.leoplatform.sdk.OffloadingStream;
 import io.leoplatform.sdk.SDKModule;
 import io.leoplatform.sdk.bus.OffloadingBot;
 
+import javax.inject.Named;
 import javax.inject.Singleton;
 
 @Singleton
@@ -19,9 +20,16 @@ public interface AWSOffloadingPlatform extends AWSPlatform {
 
         @BindsInstance
         Builder offloadingBot(OffloadingBot offloadingBot);
+//
+//        @BindsInstance
+//        Builder loadingStream(LoadingStream executor);
+//
+//        @BindsInstance
+//        Builder payloadWriter(PayloadWriter executor);
 
         AWSOffloadingPlatform build();
     }
 
+    @Named("AwsOffloadingStream")
     OffloadingStream offloadingStream();
 }

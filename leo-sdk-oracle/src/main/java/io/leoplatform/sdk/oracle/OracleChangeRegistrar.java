@@ -64,7 +64,7 @@ public final class OracleChangeRegistrar {
     }
 
     public List<String> end() {
-        ocw.end().join();
+        ocw.end();
         executorManager.end();
         return source.tables();
     }
@@ -94,11 +94,13 @@ public final class OracleChangeRegistrar {
                     cs.setInt(2, 100_000);
                     cs.executeUpdate();
                 } catch (SQLException s) {
-                    throw new IllegalStateException("Could not set threshold parameter " + t, s);
+//                    throw new IllegalStateException("Could not set threshold parameter " + t, s);
+                    log.warn("Could not set threshold parameter for " + t);
                 }
             });
         } catch (SQLException s) {
-            throw new IllegalStateException("Could not set ROWID threshold to 10,000", s);
+//            throw new IllegalStateException("Could not set ROWID threshold to 10,000", s);
+            log.warn("Could not set DBMS_CQ_NOTIFICATION.SET_ROWID_THRESHOLD");
         }
     }
 

@@ -1,55 +1,50 @@
 package io.leoplatform.sdk.oracle;
 
+import io.leoplatform.schema.ChangeEvent;
+import io.leoplatform.schema.Field;
+import io.leoplatform.schema.Op;
 import io.leoplatform.sdk.ExecutorManager;
-import io.leoplatform.sdk.LoadingStream;
-import io.leoplatform.sdk.StreamStats;
-import io.leoplatform.sdk.payload.EventPayload;
+import io.leoplatform.sdk.changes.SchemaChangeQueue;
 import oracle.jdbc.dcn.DatabaseChangeEvent;
 import oracle.jdbc.dcn.DatabaseChangeListener;
 import oracle.jdbc.dcn.RowChangeDescription;
+import oracle.jdbc.dcn.RowChangeDescription.RowOperation;
 import oracle.jdbc.dcn.TableChangeDescription;
-import oracle.sql.ROWID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.*;
-import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static io.leoplatform.schema.FieldType.STRING;
+import static io.leoplatform.schema.Source.ORACLE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.*;
 
 @Singleton
 public final class OracleChangeWriter implements DatabaseChangeListener {
     private static final Logger log = LoggerFactory.getLogger(OracleChangeWriter.class);
 
-    private final LoadingStream stream;
-    private final ExecutorManager executorManager;
+    private final SchemaChangeQueue changeQueue;
     private final BlockingQueue<DatabaseChangeEvent> payloads = new LinkedBlockingQueue<>();
-    private final Queue<CompletableFuture<Void>> pendingWrites = new LinkedList<>();
     private final AtomicBoolean running;
     private final Lock lock = new ReentrantLock();
     private final Condition changedRows = lock.newCondition();
 
     @Inject
-    public OracleChangeWriter(LoadingStream stream, ExecutorManager executorManager) {
-        this.stream = stream;
-        this.executorManager = executorManager;
+    public OracleChangeWriter(SchemaChangeQueue changeQueue, ExecutorManager executorManager) {
+        this.changeQueue = changeQueue;
         this.running = new AtomicBoolean(true);
         CompletableFuture.runAsync(this::asyncWriter, executorManager.get());
     }
@@ -61,160 +56,140 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
             lock.lock();
             try {
                 payloads.put(changeEvent);
-                changedRows.signalAll();
             } catch (InterruptedException i) {
                 log.warn("Batch writer stopped unexpectedly");
                 running.set(false);
             } finally {
                 lock.unlock();
             }
+            signalAll();
         }
     }
 
     private void asyncWriter() {
         while (running.get()) {
+            Queue<DatabaseChangeEvent> toWrite = new LinkedList<>();
             lock.lock();
             try {
-                changedRows.await(200, MILLISECONDS);
-                Queue<DatabaseChangeEvent> toWrite = new LinkedList<>();
+                changedRows.await(50, MILLISECONDS);
                 payloads.drainTo(toWrite);
-                if (!toWrite.isEmpty()) {
-                    Executor e = executorManager.get();
-                    CompletableFuture<Void> cf = CompletableFuture
-                            .runAsync(() -> sendToBus(toWrite), e)
-                            .thenRunAsync(this::removeCompleted, e);
-                    pendingWrites.add(cf);
-                }
-
             } catch (InterruptedException e) {
                 log.warn("Oracle batch change writer stopped unexpectedly");
                 running.set(false);
             } finally {
                 lock.unlock();
             }
+            if (!toWrite.isEmpty()) {
+                sendToChangeQueue(toWrite);
+            }
         }
     }
 
-    private void sendToBus(Queue<DatabaseChangeEvent> toWrite) {
-        Map<String, Set<String>> tableChanges = toTableChanges(toWrite);
-        tableChanges.forEach((t, r) -> {
-            log.info("Sending rows for {}", t);
-            log.info(String.join(",", r));
+    private void sendToChangeQueue(Queue<DatabaseChangeEvent> toWrite) {
+        toChangeEvents(toWrite).forEach(change -> {
+            log.info("Sending rows for {}", change.getName());
+            List<String> rowIds = change.getFields().stream()
+                .map(Field::getValue)
+                .collect(toList());
+            log.info(String.join(",", rowIds));
+            changeQueue.add(change);
         });
-        Optional.of(tableChanges)
-                .filter(c -> !c.isEmpty())
-                .map(Map::entrySet)
-                .map(Collection::stream)
-                .map(this::reduceEntries)
-                .map(JsonObjectBuilder::build)
-                .map(this::toPayload)
-                .ifPresent(stream::load);
     }
 
-    CompletableFuture<StreamStats> end() {
+    void end() {
         running.set(false);
+        signalAll();
+        drainBuffer();
+        changeQueue.end();
+    }
+
+    private void signalAll() {
         lock.lock();
         try {
             changedRows.signalAll();
         } finally {
             lock.unlock();
         }
-
-        completePendingTasks();
-        return stream.end();
     }
 
-    private Map<String, Set<String>> toTableChanges(Queue<DatabaseChangeEvent> toWrite) {
-        Map<String, Set<String>> changes = new LinkedHashMap<>();
-        toWrite.forEach(e -> rowsChanged(e).forEach((key, value) -> changes
-                .merge(key, value, (tbl, rows) -> Stream.of(rows, value)
-                        .flatMap(Set::stream)
-                        .collect(toSet()))));
-        return changes;
+    private Collection<ChangeEvent> toChangeEvents(Queue<DatabaseChangeEvent> changeEvents) {
+        return changeEvents.parallelStream()
+            .flatMap(this::tableChanges)
+            .map(this::rowChanges)
+            .flatMap(Set::stream)
+            .collect(toConcurrentMap(
+                ChangeEvent::getName,
+                Function.identity(),
+                this::combineEvents)
+            )
+            .values();
     }
 
-    private JsonObjectBuilder reduceEntries(Stream<Entry<String, Set<String>>> s) {
-        return s.reduce(Json.createObjectBuilder(),
-                (b, c) -> b.add(c.getKey(), Json.createArrayBuilder(c.getValue())),
-                JsonObjectBuilder::addAll);
+    private ChangeEvent combineEvents(ChangeEvent c1, ChangeEvent c2) {
+        List<Field> f = Stream.of(c1.getFields(), c2.getFields())
+            .flatMap(List::stream)
+            .distinct()
+            .collect(toList());
+        return new ChangeEvent(c1.getSource(), c1.getOp(), c1.getName(), f);
     }
 
-    private Map<String, Set<String>> rowsChanged(DatabaseChangeEvent changeEvent) {
-        return tableChanges(changeEvent)
-                .parallelStream()
-                .map(this::rowChanges)
-                .collect(toMap(
-                        Entry::getKey,
-                        Entry::getValue,
-                        (r1, r2) -> Stream.of(r1, r2).flatMap(Set::stream).collect(toSet())));
+    private Stream<TableChangeDescription> tableChanges(DatabaseChangeEvent changeEvent) {
+        return Optional.of(changeEvent)
+            .map(DatabaseChangeEvent::getTableChangeDescription)
+            .map(Stream::of)
+            .orElse(Stream.empty());
     }
 
-    private List<TableChangeDescription> tableChanges(DatabaseChangeEvent changeEvent) {
-        return Optional.ofNullable(changeEvent)
-                .map(DatabaseChangeEvent::getTableChangeDescription)
-                .map(Arrays::asList)
-                .orElse(Collections.emptyList());
-    }
-
-    private Entry<String, Set<String>> rowChanges(TableChangeDescription desc) {
+    private Set<ChangeEvent> rowChanges(TableChangeDescription desc) {
         String table = tableName(desc);
 
-        Set<String> rowIds = rowChangeDescription(desc).stream()
-                .map(RowChangeDescription::getRowid)
-                .map(ROWID::stringValue)
-                .collect(toSet());
-
-        return new SimpleImmutableEntry<>(table, rowIds);
+        return rowChangeDescription(desc).stream()
+            .map(rowDesc -> {
+                Field f = new Field("ROWID", STRING, rowDesc.getRowid().stringValue());
+                return new SimpleImmutableEntry<>(getOp(rowDesc), f);
+            })
+            .map(e -> new ChangeEvent(ORACLE, e.getKey(), table, Collections.singletonList(e.getValue())))
+            .collect(toSet());
     }
 
-    private EventPayload toPayload(JsonObject jsonObject) {
-        return () -> jsonObject;
+    private Op getOp(RowChangeDescription desc) {
+        RowOperation oracleOp = Optional.of(desc)
+            .map(RowChangeDescription::getRowOperation)
+            .orElse(RowOperation.UPDATE);
+        switch (oracleOp) {
+            case INSERT:
+                return Op.INSERT;
+            case UPDATE:
+                return Op.UPDATE;
+            case DELETE:
+                return Op.DELETE;
+        }
+        return Op.UPDATE;
     }
 
     private String tableName(TableChangeDescription desc) {
         return Optional.ofNullable(desc)
-                .map(TableChangeDescription::getTableName)
-                .orElseThrow(() -> new IllegalArgumentException("Missing table name in description " + desc));
+            .map(TableChangeDescription::getTableName)
+            .orElseThrow(() -> new IllegalArgumentException("Missing table name in description " + desc));
     }
 
-    private void removeCompleted() {
+    private void drainBuffer() {
+        Queue<DatabaseChangeEvent> toWrite = new LinkedList<>();
         lock.lock();
         try {
-            pendingWrites.removeIf(CompletableFuture::isDone);
+            payloads.drainTo(toWrite);
         } finally {
             lock.unlock();
         }
-    }
-
-    private void completePendingTasks() {
-        removeCompleted();
-        lock.lock();
-        try {
-            long inFlight = pendingWrites.parallelStream()
-                    .filter(w -> !w.isDone())
-                    .count();
-            log.info("Waiting for {} Oracle writer task{} to complete", inFlight, inFlight == 1 ? "" : "s");
-        } finally {
-            lock.unlock();
-        }
-        while (!pendingWrites.isEmpty()) {
-            lock.lock();
-            try {
-                changedRows.await(100, MILLISECONDS);
-            } catch (InterruptedException i) {
-                log.warn("Stopped with incomplete pending Oracle writer tasks");
-                pendingWrites.clear();
-            } finally {
-                lock.unlock();
-            }
-            removeCompleted();
+        if (!toWrite.isEmpty()) {
+            sendToChangeQueue(toWrite);
         }
     }
 
     private List<RowChangeDescription> rowChangeDescription(TableChangeDescription desc) {
         return Optional.ofNullable(desc)
-                .map(TableChangeDescription::getRowChangeDescription)
-                .map(Arrays::asList)
-                .orElse(Collections.emptyList());
+            .map(TableChangeDescription::getRowChangeDescription)
+            .map(Arrays::asList)
+            .orElse(Collections.emptyList());
     }
 }
