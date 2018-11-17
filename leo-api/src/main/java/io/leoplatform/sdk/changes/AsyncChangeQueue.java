@@ -19,8 +19,6 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
 @Singleton
 public class AsyncChangeQueue implements SchemaChangeQueue {
     private static final Logger log = LoggerFactory.getLogger(AsyncChangeQueue.class);
@@ -44,7 +42,7 @@ public class AsyncChangeQueue implements SchemaChangeQueue {
 
     @Override
     public void add(ChangeEvent changeEvent) {
-        while (running.get()) {
+        if (running.get()) {
             lock.lock();
             try {
                 pendingChanges.add(changeEvent);
@@ -67,7 +65,7 @@ public class AsyncChangeQueue implements SchemaChangeQueue {
         while (running.get()) {
             lock.lock();
             try {
-                changedRows.await(50, MILLISECONDS);
+                changedRows.await();
                 if (canLoad(lastLoad)) {
                     Queue<ChangeEvent> toLoad = new LinkedList<>();
                     pendingChanges.drainTo(toLoad, maxQueueSize);
@@ -97,7 +95,7 @@ public class AsyncChangeQueue implements SchemaChangeQueue {
     }
 
     private boolean canLoad(Instant lastLoad) {
-        return maxElementsReached() || queueTimeExpired(lastLoad);
+        return !pendingChanges.isEmpty() && (maxElementsReached() || queueTimeExpired(lastLoad));
     }
 
     private boolean queueTimeExpired(Instant lastLoad) {

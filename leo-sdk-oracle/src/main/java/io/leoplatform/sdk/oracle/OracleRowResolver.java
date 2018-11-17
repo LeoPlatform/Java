@@ -15,7 +15,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.LinkedList;
-import java.util.List;
+import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -35,13 +35,13 @@ public class OracleRowResolver implements DomainResolver {
     }
 
     @Override
-    public JsonArray toResultJson(String sourceName, List<Field> fields) {
-        List<String> changedRows = rowIds(fields);
+    public JsonArray toResultJson(String sourceName, Queue<Field> fields) {
+        Queue<String> changedRows = rowIds(fields);
         JsonArrayBuilder builder = Json.createArrayBuilder();
         while (!changedRows.isEmpty()) {
             int toElement = Math.min(changedRows.size(), 1_000);
             String rowIds = IntStream.range(0, toElement)
-                .mapToObj(changedRows::remove)
+                .mapToObj(r -> changedRows.remove())
                 .collect(Collectors.joining("','", "'", "'"));
             builder.add(toJson(sourceName, rowIds));
         }
@@ -60,7 +60,7 @@ public class OracleRowResolver implements DomainResolver {
         }
     }
 
-    private List<String> rowIds(List<Field> fields) {
+    private Queue<String> rowIds(Queue<Field> fields) {
         return fields.parallelStream()
             .filter(f -> f.getType() == STRING)
             .filter(f -> f.getField().equals("ROWID"))

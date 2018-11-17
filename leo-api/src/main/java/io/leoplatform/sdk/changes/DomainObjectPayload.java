@@ -14,8 +14,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.toConcurrentMap;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.*;
 
 @Singleton
 public class DomainObjectPayload implements ChangeReactor {
@@ -44,7 +43,7 @@ public class DomainObjectPayload implements ChangeReactor {
     }
 
     //TODO: make this work asynchronous
-    private JsonObject toJson(Entry<String, List<Field>> changes) {
+    private JsonObject toJson(Entry<String, Queue<Field>> changes) {
         log.info("Loading {} domain objects from {}", changes.getValue().size(), changes.getKey());
         JsonArray results = domainResolver.toResultJson(changes.getKey(), changes.getValue());
         return Json.createObjectBuilder()
@@ -52,7 +51,7 @@ public class DomainObjectPayload implements ChangeReactor {
             .build();
     }
 
-    private Map<String, List<Field>> distinctChanges(Queue<ChangeEvent> changeEvent) {
+    private Map<String, Queue<Field>> distinctChanges(Queue<ChangeEvent> changeEvent) {
 
         return changeEvent.parallelStream()
             .filter(c -> Optional.of(c).map(ChangeEvent::getName).isPresent())
@@ -60,12 +59,11 @@ public class DomainObjectPayload implements ChangeReactor {
                 ChangeEvent::getName,
                 c -> c.getFields().parallelStream()
                     .filter(f -> Optional.of(f).map(Field::getValue).isPresent())
-                    .collect(toList()),
+                    .collect(toCollection(LinkedList::new)),
                 (f1, f2) -> Stream.of(f1, f2)
                     .flatMap(Collection::stream)
-                    .collect(toList()))
+                    .collect(toCollection(LinkedList::new)))
             );
 
     }
-
 }

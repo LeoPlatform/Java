@@ -12,7 +12,7 @@ import io.leoplatform.sdk.changes.SchemaChangeQueue;
 import javax.inject.Singleton;
 
 @Singleton
-@Component(modules = {OracleModule.class, SDKModule.class})
+@Component(modules = {SDKModule.class, OracleModule.class})
 public interface OraclePlatform extends SDKPlatform {
 
     @Component.Builder

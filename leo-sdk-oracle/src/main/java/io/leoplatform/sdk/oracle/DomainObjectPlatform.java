@@ -17,6 +17,7 @@ import javax.inject.Singleton;
 @Singleton
 @Component(modules = {SDKModule.class, DomainObjectModule.class})
 public interface DomainObjectPlatform extends OraclePlatform {
+
     @Component.Builder
     interface Builder {
         @BindsInstance
