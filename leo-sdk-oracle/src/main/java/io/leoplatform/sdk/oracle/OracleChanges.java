@@ -23,7 +23,7 @@ public final class OracleChanges {
             .oracleChangeLoader();
     }
 
-    public static OracleChangeLoader ofLoader(PayloadWriter writer) {
+    public static OracleChangeLoader ofWriter(PayloadWriter writer) {
         return DaggerDomainObjectPlatform.builder()
             .loadingStream(new NullLoadingStream())
             .executorManager(internalExecutor())

@@ -37,9 +37,15 @@ public final class DomainObjectModule {
 
     @Singleton
     @Provides
+    public static DomainQuery provideDomainQuery() {
+        return new OracleDomainQuery();
+    }
+
+    @Singleton
+    @Provides
     @Named("DomainObjectResolver")
-    public static DomainResolver provideDomainObjectResolver(ChangeSource source, JsonDomainData domainData) {
-        return new OracleRowResolver(source, domainData);
+    public static DomainResolver provideDomainObjectResolver(ChangeSource source, DomainQuery domainQuery, JsonDomainData domainData) {
+        return new OracleRowResolver(source, domainQuery, domainData);
     }
 
     @Singleton

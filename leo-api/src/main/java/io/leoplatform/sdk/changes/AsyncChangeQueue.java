@@ -9,8 +9,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -18,6 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Singleton
 public class AsyncChangeQueue implements SchemaChangeQueue {
@@ -65,13 +65,13 @@ public class AsyncChangeQueue implements SchemaChangeQueue {
         while (running.get()) {
             lock.lock();
             try {
-                changedRows.await();
-                if (canLoad(lastLoad)) {
-                    Queue<ChangeEvent> toLoad = new LinkedList<>();
+                changedRows.await(500, MILLISECONDS);
+                while (canLoad(lastLoad)) {
+                    BlockingQueue<ChangeEvent> toLoad = new LinkedBlockingQueue<>();
                     pendingChanges.drainTo(toLoad, maxQueueSize);
                     domainLoader.loadChanges(toLoad);
-                    lastLoad = Instant.now();
                 }
+                lastLoad = Instant.now();
             } catch (InterruptedException e) {
                 log.warn("Oracle change queue stopped unexpectedly");
                 running.set(false);
@@ -85,7 +85,7 @@ public class AsyncChangeQueue implements SchemaChangeQueue {
         lock.lock();
         try {
             while (!pendingChanges.isEmpty()) {
-                Queue<ChangeEvent> toLoad = new LinkedList<>();
+                BlockingQueue<ChangeEvent> toLoad = new LinkedBlockingQueue<>();
                 pendingChanges.drainTo(toLoad, maxQueueSize);
                 domainLoader.loadChanges(toLoad);
             }

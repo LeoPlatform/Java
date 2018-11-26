@@ -12,6 +12,8 @@ import javax.json.JsonArray;
 import javax.json.JsonObject;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.*;
@@ -30,7 +32,7 @@ public class DomainObjectPayload implements ChangeReactor {
     }
 
     @Override
-    public void loadChanges(Queue<ChangeEvent> changeEvent) {
+    public void loadChanges(BlockingQueue<ChangeEvent> changeEvent) {
         List<JsonObject> domainObjects = distinctChanges(changeEvent).entrySet().stream()
             .map(this::toJson)
             .collect(toList());
@@ -43,7 +45,7 @@ public class DomainObjectPayload implements ChangeReactor {
     }
 
     //TODO: make this work asynchronous
-    private JsonObject toJson(Entry<String, Queue<Field>> changes) {
+    private JsonObject toJson(Entry<String, BlockingQueue<Field>> changes) {
         log.info("Loading {} domain objects from {}", changes.getValue().size(), changes.getKey());
         JsonArray results = domainResolver.toResultJson(changes.getKey(), changes.getValue());
         return Json.createObjectBuilder()
@@ -51,7 +53,7 @@ public class DomainObjectPayload implements ChangeReactor {
             .build();
     }
 
-    private Map<String, Queue<Field>> distinctChanges(Queue<ChangeEvent> changeEvent) {
+    private Map<String, BlockingQueue<Field>> distinctChanges(Queue<ChangeEvent> changeEvent) {
 
         return changeEvent.parallelStream()
             .filter(c -> Optional.of(c).map(ChangeEvent::getName).isPresent())
@@ -59,11 +61,10 @@ public class DomainObjectPayload implements ChangeReactor {
                 ChangeEvent::getName,
                 c -> c.getFields().parallelStream()
                     .filter(f -> Optional.of(f).map(Field::getValue).isPresent())
-                    .collect(toCollection(LinkedList::new)),
+                    .collect(toCollection(LinkedBlockingQueue::new)),
                 (f1, f2) -> Stream.of(f1, f2)
                     .flatMap(Collection::stream)
-                    .collect(toCollection(LinkedList::new)))
+                    .collect(toCollection(LinkedBlockingQueue::new)))
             );
-
     }
 }

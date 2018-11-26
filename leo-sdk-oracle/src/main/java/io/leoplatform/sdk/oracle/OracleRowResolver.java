@@ -2,6 +2,7 @@ package io.leoplatform.sdk.oracle;
 
 import io.leoplatform.schema.ChangeSource;
 import io.leoplatform.schema.Field;
+import io.leoplatform.sdk.changes.DomainQuery;
 import io.leoplatform.sdk.changes.DomainResolver;
 import io.leoplatform.sdk.changes.JsonDomainData;
 import org.slf4j.Logger;
@@ -15,56 +16,46 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.LinkedList;
-import java.util.Queue;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import static io.leoplatform.schema.FieldType.STRING;
-import static java.util.stream.Collectors.toCollection;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
 
 public class OracleRowResolver implements DomainResolver {
     private static final Logger log = LoggerFactory.getLogger(OracleRowResolver.class);
 
     private final ChangeSource source;
+    private final DomainQuery domainQuery;
     private final JsonDomainData jsonDomainData;
 
     @Inject
-    public OracleRowResolver(ChangeSource source, JsonDomainData jsonDomainData) {
+    public OracleRowResolver(ChangeSource source, DomainQuery domainQuery, JsonDomainData jsonDomainData) {
         this.source = source;
+        this.domainQuery = domainQuery;
         this.jsonDomainData = jsonDomainData;
     }
 
     @Override
-    public JsonArray toResultJson(String sourceName, Queue<Field> fields) {
-        Queue<String> changedRows = rowIds(fields);
+    public JsonArray toResultJson(String sourceName, BlockingQueue<Field> fields) {
         JsonArrayBuilder builder = Json.createArrayBuilder();
-        while (!changedRows.isEmpty()) {
-            int toElement = Math.min(changedRows.size(), 1_000);
-            String rowIds = IntStream.range(0, toElement)
-                .mapToObj(r -> changedRows.remove())
-                .collect(Collectors.joining("','", "'", "'"));
-            builder.add(toJson(sourceName, rowIds));
+        while (!fields.isEmpty()) {
+            List<Field> values = new LinkedList<>();
+            fields.drainTo(values, 1_000);
+            String sql = domainQuery.generateSql(sourceName, values);
+            builder.add(toJson(sql));
         }
         return builder.build();
     }
 
-    private JsonArray toJson(String sourceName, String rows) {
+    private JsonArray toJson(String sql) {
         try (Connection conn = source.connection()) {
-            String sql = String.format("SELECT * FROM %s WHERE ROWID IN (%s)", sourceName, rows);
             try (Statement stmt = conn.createStatement()) {
                 return jsonDomainData.toJson(stmt.executeQuery(sql));
+            } catch (SQLException se) {
+                log.error("Invalid SQL discovered {}", sql);
+                throw new IllegalArgumentException(se);
             }
         } catch (SQLException s) {
             log.warn("Unable to contact Oracle database");
             throw new IllegalStateException("Error retrieving source changes", s);
         }
-    }
-
-    private Queue<String> rowIds(Queue<Field> fields) {
-        return fields.parallelStream()
-            .filter(f -> f.getType() == STRING)
-            .filter(f -> f.getField().equals("ROWID"))
-            .map(Field::getValue)
-            .collect(toCollection(LinkedList::new));
     }
 }

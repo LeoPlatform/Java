@@ -6,10 +6,7 @@ import io.leoplatform.schema.ChangeSource;
 import io.leoplatform.sdk.ExecutorManager;
 import io.leoplatform.sdk.LoadingStream;
 import io.leoplatform.sdk.SDKModule;
-import io.leoplatform.sdk.changes.ChangeReactor;
-import io.leoplatform.sdk.changes.DomainResolver;
-import io.leoplatform.sdk.changes.PayloadWriter;
-import io.leoplatform.sdk.changes.SchemaChangeQueue;
+import io.leoplatform.sdk.changes.*;
 
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -41,6 +38,8 @@ public interface DomainObjectPlatform extends OraclePlatform {
     OracleChangeSource oracleChangeSource();
 
     ChangeSource changeSource();
+
+    DomainQuery domainQuery();
 
     @Named("DomainObjectResolver")
     DomainResolver domainResolver();
