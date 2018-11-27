@@ -1,5 +1,6 @@
 package io.leoplatform.sdk.oracle;
 
+import com.typesafe.config.Config;
 import dagger.BindsInstance;
 import dagger.Component;
 import io.leoplatform.schema.ChangeSource;
@@ -38,6 +39,8 @@ public interface DomainObjectPlatform extends OraclePlatform {
     OracleChangeSource oracleChangeSource();
 
     ChangeSource changeSource();
+
+    Config oracleConfig();
 
     DomainQuery domainQuery();
 

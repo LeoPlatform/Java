@@ -1,7 +1,6 @@
 package io.leoplatform.sdk.oracle;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
 import org.slf4j.Logger;
@@ -25,12 +24,13 @@ public class ConfigFileSource implements OracleChangeSource {
 
     private static final String COLUMN_SEPARATOR = ",";
     private static final Pattern separatorPattern = Pattern.compile(COLUMN_SEPARATOR, LITERAL);
-    private static final Config cfg = getCfg();
+    private final Config oracleConfig;
 
     private OracleConnection conn;
 
     @Inject
-    public ConfigFileSource() {
+    public ConfigFileSource(Config oracleConfig) {
+        this.oracleConfig = oracleConfig;
         this.conn = getConnection();
     }
 
@@ -47,7 +47,7 @@ public class ConfigFileSource implements OracleChangeSource {
 
     @Override
     public List<String> tables() {
-        String tableStr = Optional.of(cfg)
+        String tableStr = Optional.of(oracleConfig)
             .map(c -> c.getString("oracle.tables"))
             .orElseThrow(() -> new IllegalStateException("Missing oracle.tables key in oracle_config.properties"));
 
@@ -70,10 +70,10 @@ public class ConfigFileSource implements OracleChangeSource {
     private OracleConnection getConnection() {
         OracleDriver dr = new OracleDriver();
         Properties props = new Properties();
-        props.setProperty("user", cfg.getString("oracle.user"));
-        props.setProperty("password", cfg.getString("oracle.pass"));
+        props.setProperty("user", oracleConfig.getString("oracle.user"));
+        props.setProperty("password", oracleConfig.getString("oracle.pass"));
         try {
-            String url = cfg.getString("oracle.url");
+            String url = oracleConfig.getString("oracle.url");
             Connection conn = dr.connect(url, props);
             log.info("Established connection to {}", url);
             return Optional.ofNullable(conn)
@@ -88,25 +88,15 @@ public class ConfigFileSource implements OracleChangeSource {
     private OracleConnection validConnection() {
         return Optional.of(conn)
             .filter(OracleConnection::isUsable)
-            .filter(this::pingable)
+            .filter(this::canPing)
             .orElseThrow(() -> new IllegalStateException("Missing or invalid Oracle database connection"));
     }
 
-    private boolean pingable(OracleConnection c) {
+    private boolean canPing(OracleConnection c) {
         try {
             return c.pingDatabase() == OracleConnection.DATABASE_OK;
         } catch (SQLException e) {
             throw new IllegalStateException("Cannot ping database", e);
         }
-    }
-
-    private static Config getCfg() {
-        //TODO: Move these into the injector config
-        Config cfg = ConfigFactory.load("oracle_config.properties");
-        System.setProperty("LEO.CHANGE_USER", cfg.getString("oracle.user"));
-        System.setProperty("LEO.CHANGE_PASS", cfg.getString("oracle.pass"));
-        System.setProperty("LEO.CHANGE_URL", cfg.getString("oracle.url"));
-        System.setProperty("LEO.CHANGE_TABLES", cfg.getString("oracle.tables"));
-        return cfg;
     }
 }

@@ -26,12 +26,6 @@ public interface AWSLoadingPlatform extends AWSPlatform {
 
         @BindsInstance
         Builder loadingBot(LoadingBot loadingBot);
-//
-//        @BindsInstance
-//        Builder loadingStream(LoadingStream executor);
-//
-//        @BindsInstance
-//        Builder payloadWriter(PayloadWriter executor);
 
         AWSLoadingPlatform build();
     }

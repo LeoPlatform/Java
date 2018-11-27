@@ -91,7 +91,7 @@ public class JSDKGzipWriterTest {
                 .add("order_id", Json.createValue(id))
                 .add("retailer_id", Json.createValue(String.valueOf(1000000000 + (id % 100))))
                 .add("supplier_id", Json.createValue(String.valueOf(1000000000 + (id % 100) + 1000)))
-                .add("po_number", Json.createValue("SG" + String.valueOf(id)))
+            .add("po_number", Json.createValue("SG" + id))
                 .add("create_date", Json.createValue(now.toString()))
                 .add("ship_late_date", Json.createValue(shipLate))
                 .add("retailer_create_date", Json.createValue(retailerCreated))

@@ -1,5 +1,7 @@
 package io.leoplatform.sdk.oracle;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import dagger.Module;
 import dagger.Provides;
 import io.leoplatform.schema.ChangeSource;
@@ -13,14 +15,14 @@ import javax.inject.Singleton;
 public final class DomainObjectModule {
     @Singleton
     @Provides
-    public static OracleChangeSource provideOracleChangeSource() {
-        return new ConfigFileSource();
+    public static OracleChangeSource provideOracleChangeSource(Config oracleConfig) {
+        return new ConfigFileSource(oracleConfig);
     }
 
     @Singleton
     @Provides
-    public static ChangeSource provideChangeSource() {
-        return new PooledChangeSource();
+    public static ChangeSource provideChangeSource(Config oracleConfig) {
+        return new PooledChangeSource(oracleConfig);
     }
 
     @Singleton
@@ -37,8 +39,14 @@ public final class DomainObjectModule {
 
     @Singleton
     @Provides
-    public static DomainQuery provideDomainQuery() {
-        return new OracleDomainQuery();
+    public static Config provideOracleConfig() {
+        return ConfigFactory.load("oracle_config.properties");
+    }
+
+    @Singleton
+    @Provides
+    public static DomainQuery provideDomainQuery(Config oracleConfig) {
+        return new OracleDomainQuery(oracleConfig);
     }
 
     @Singleton

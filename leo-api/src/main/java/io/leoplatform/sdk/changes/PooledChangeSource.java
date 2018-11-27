@@ -1,5 +1,6 @@
 package io.leoplatform.sdk.changes;
 
+import com.typesafe.config.Config;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.leoplatform.schema.ChangeSource;
@@ -10,7 +11,6 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
@@ -20,12 +20,14 @@ import static java.util.stream.Collectors.toList;
 public class PooledChangeSource implements ChangeSource {
     private static final Logger log = LoggerFactory.getLogger(PooledChangeSource.class);
 
+    private final Config oracleConfig;
     private final HikariDataSource ds;
     private final List<String> tables;
 
     @Inject
-    public PooledChangeSource() {
-        this.ds = new HikariDataSource(new HikariConfig(fromEnvironment()));
+    public PooledChangeSource(Config oracleConfig) {
+        this.oracleConfig = oracleConfig;
+        this.ds = new HikariDataSource(fromConfig());
         this.tables = parseTables();
     }
 
@@ -44,22 +46,17 @@ public class PooledChangeSource implements ChangeSource {
         return tables;
     }
 
-    private Properties fromEnvironment() {
-        Properties props = new Properties();
-        props.setProperty("dataSource.user", validate("LEO.CHANGE_USER"));
-        props.setProperty("dataSource.password", validate("LEO.CHANGE_PASS"));
-        props.setProperty("jdbcUrl", validate("LEO.CHANGE_URL"));
-        return props;
-    }
-
-    private String validate(String envVar) {
-        return Optional.ofNullable(System.getProperty(envVar))
-            .filter(e -> !e.isEmpty())
-            .orElseThrow(() -> new IllegalArgumentException("Missing " + envVar + " in environment"));
+    private HikariConfig fromConfig() {
+        Properties props = new Properties() {{
+            setProperty("dataSource.user", oracleConfig.getString("oracle.user"));
+            setProperty("dataSource.password", oracleConfig.getString("oracle.pass"));
+            setProperty("jdbcUrl", oracleConfig.getString("oracle.url"));
+        }};
+        return new HikariConfig(props);
     }
 
     private List<String> parseTables() {
-        String tableStr = validate("LEO.CHANGE_TABLES");
+        String tableStr = oracleConfig.getString("oracle.tables");
 
         return Pattern.compile(",", LITERAL)
             .splitAsStream(tableStr)

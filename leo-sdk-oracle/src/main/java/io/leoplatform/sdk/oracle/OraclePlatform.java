@@ -1,5 +1,6 @@
 package io.leoplatform.sdk.oracle;
 
+import com.typesafe.config.Config;
 import dagger.BindsInstance;
 import dagger.Component;
 import io.leoplatform.schema.ChangeSource;
@@ -25,6 +26,8 @@ public interface OraclePlatform extends SDKPlatform {
 
         OraclePlatform build();
     }
+
+    Config oracleConfig();
 
     SchemaChangeQueue changeQueue();
 

@@ -4,14 +4,12 @@ plugins {
     id 'signing'
 }
 
-version = '1.0.4'
+version = '1.0.5'
 
 dependencies {
     compile(
             project(':leo-api'),
-            'com.oracle.jdbc:ojdbc8:12.2.0.1',
-            'com.amazonaws:aws-lambda-java-core:1.2.0',
-            'com.amazonaws:aws-lambda-java-events:2.2.2'
+            'com.oracle.jdbc:ojdbc8:12.2.0.1'
     )
 }
 

@@ -20,12 +20,6 @@ public interface AWSOffloadingPlatform extends AWSPlatform {
 
         @BindsInstance
         Builder offloadingBot(OffloadingBot offloadingBot);
-//
-//        @BindsInstance
-//        Builder loadingStream(LoadingStream executor);
-//
-//        @BindsInstance
-//        Builder payloadWriter(PayloadWriter executor);
 
         AWSOffloadingPlatform build();
     }

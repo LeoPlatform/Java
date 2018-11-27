@@ -1,5 +1,6 @@
 package io.leoplatform.sdk.oracle;
 
+import com.typesafe.config.ConfigFactory;
 import io.leoplatform.schema.Field;
 import io.leoplatform.sdk.changes.DomainQuery;
 import org.testng.annotations.Test;
@@ -13,7 +14,7 @@ import static org.testng.Assert.assertEquals;
 
 public class OracleDomainQueryTest {
 
-    private DomainQuery oracleQuery = new OracleDomainQuery();
+    private DomainQuery oracleQuery = new OracleDomainQuery(ConfigFactory.load("oracle_config.properties"));
 
     @Test
     public void testDefaultSql() {

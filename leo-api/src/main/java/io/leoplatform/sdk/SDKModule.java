@@ -72,38 +72,4 @@ public class SDKModule {
     public static JsonDomainData provideJsonDomainData() {
         return new JacksonDomainJson();
     }
-
-
-//    @Singleton
-//    @Provides
-//    public static DomainResolver provideDomainResolver() {
-//        return new SimpleDomainResolver();
-//    }
-
-//    @Singleton
-//    @Provides
-//    public static PayloadWriter providePayloadWriter(LoadingStream stream) {
-//        return new BusWriter(stream);
-//    }
-
-//    @Singleton
-//    @Provides
-//    @Named("DomainObject")
-//    public static ChangeReactor provideDomainObjectReactor(DomainResolver domainResolver, PayloadWriter payloadWriter) {
-//        return new DomainObjectPayload(domainResolver, payloadWriter);
-//    }
-
-//    @Singleton
-//    @Provides
-//    @Named("LeoEvent")
-//    public static ChangeReactor provideLeoEventReactor() {
-//        return new LeoChangesPayload();
-//    }
-//
-//    @Singleton
-//    @Provides
-//    @Named("KinesisEvent")
-//    public static ChangeReactor provideKinesisEventReactor() {
-//        return new KinesisChangesPayload();
-//    }
 }
