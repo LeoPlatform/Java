@@ -36,7 +36,11 @@ public class DomainObjectPayload implements ChangeReactor {
         List<JsonObject> domainObjects = distinctChanges(changeEvent).entrySet().stream()
             .map(this::toJson)
             .collect(toList());
-        payloadWriter.write(domainObjects);
+        try {
+            payloadWriter.write(domainObjects);
+        } catch (Exception e) {
+            log.error("Error occurred while writing domain objects", e);
+        }
     }
 
     @Override
@@ -44,10 +48,9 @@ public class DomainObjectPayload implements ChangeReactor {
         payloadWriter.end();
     }
 
-    //TODO: make this work asynchronous
     private JsonObject toJson(Entry<String, BlockingQueue<Field>> changes) {
-        log.info("Loading {} domain objects from {}", changes.getValue().size(), changes.getKey());
         JsonArray results = domainResolver.toResultJson(changes.getKey(), changes.getValue());
+        log.info("Loaded {} domain objects from {}", results.size(), changes.getKey());
         return Json.createObjectBuilder()
             .add(changes.getKey(), results)
             .build();

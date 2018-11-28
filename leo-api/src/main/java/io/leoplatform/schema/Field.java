@@ -33,7 +33,8 @@ public final class Field {
             return false;
         Field field1 = (Field) o;
         return Objects.equals(field, field1.field) &&
-                type == field1.type;
+            type == field1.type &&
+            Objects.equals(value, field1.value);
     }
 
     @Override

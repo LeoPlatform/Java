@@ -2,6 +2,7 @@ package io.leoplatform.sdk;
 
 import dagger.Module;
 import dagger.Provides;
+import io.leoplatform.schema.ChangeSource;
 import io.leoplatform.sdk.changes.*;
 import io.leoplatform.sdk.config.ConnectorConfig;
 import io.leoplatform.sdk.config.FileConfig;
@@ -69,7 +70,7 @@ public class SDKModule {
 
     @Singleton
     @Provides
-    public static JsonDomainData provideJsonDomainData() {
-        return new JacksonDomainJson();
+    public static JsonDomainData provideJsonDomainData(ChangeSource changeSource) {
+        return new JacksonDomainJson(changeSource);
     }
 }

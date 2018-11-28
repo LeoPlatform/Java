@@ -52,8 +52,8 @@ public final class DomainObjectModule {
     @Singleton
     @Provides
     @Named("DomainObjectResolver")
-    public static DomainResolver provideDomainObjectResolver(ChangeSource source, DomainQuery domainQuery, JsonDomainData domainData) {
-        return new OracleRowResolver(source, domainQuery, domainData);
+    public static DomainResolver provideDomainObjectResolver(DomainQuery domainQuery, JsonDomainData domainData, ExecutorManager executorManager) {
+        return new OracleRowResolver(domainQuery, domainData, executorManager);
     }
 
     @Singleton

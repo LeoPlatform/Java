@@ -25,6 +25,7 @@ public class BusWriter implements PayloadWriter {
 
     @Override
     public void write(List<JsonObject> payloads) {
+        log.info("Writing {} payloads to bus", payloads.size());
         payloads.stream()
             .map(this::toPayload)
             .forEach(stream::load);

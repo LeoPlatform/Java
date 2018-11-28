@@ -94,12 +94,10 @@ public final class OracleChangeRegistrar {
                     cs.setInt(2, 100_000);
                     cs.executeUpdate();
                 } catch (SQLException s) {
-//                    throw new IllegalStateException("Could not set threshold parameter " + t, s);
                     log.warn("Could not set threshold parameter for " + t);
                 }
             });
         } catch (SQLException s) {
-//            throw new IllegalStateException("Could not set ROWID threshold to 10,000", s);
             log.warn("Could not set DBMS_CQ_NOTIFICATION.SET_ROWID_THRESHOLD");
         }
     }

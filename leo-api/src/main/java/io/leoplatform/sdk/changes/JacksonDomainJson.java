@@ -1,5 +1,6 @@
 package io.leoplatform.sdk.changes;
 
+import io.leoplatform.schema.ChangeSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,9 +10,7 @@ import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObjectBuilder;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -23,15 +22,31 @@ import static java.util.stream.Collectors.toMap;
 @Singleton
 public class JacksonDomainJson implements JsonDomainData {
     private static final Logger log = LoggerFactory.getLogger(JacksonDomainJson.class);
+    private final ChangeSource source;
 
     @Inject
-    public JacksonDomainJson() {
+    public JacksonDomainJson(ChangeSource source) {
+        this.source = source;
     }
 
     @Override
-    public JsonArray toJson(ResultSet rs) throws SQLException {
-        JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
+    public JsonArray toJson(String query) {
+        log.info("Querying for {}", query);
+        try (Connection conn = source.connection()) {
+            try (Statement stmt = conn.createStatement()) {
+                return rsToJson(stmt.executeQuery(query));
+            } catch (SQLException se) {
+                log.error("Unable to execute {}", query);
+                throw new IllegalArgumentException(se);
+            }
+        } catch (SQLException s) {
+            log.error("Unable to request domain data", s);
+            return JsonArray.EMPTY_JSON_ARRAY;
+        }
+    }
 
+    private JsonArray rsToJson(ResultSet rs) throws SQLException {
+        JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
         ResultSetMetaData metaData = rs.getMetaData();
         int numCols = metaData.getColumnCount();
         Map<Integer, String> colNames = colNames(metaData, numCols);

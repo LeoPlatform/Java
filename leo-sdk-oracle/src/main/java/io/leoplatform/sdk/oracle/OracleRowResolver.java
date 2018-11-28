@@ -1,7 +1,7 @@
 package io.leoplatform.sdk.oracle;
 
-import io.leoplatform.schema.ChangeSource;
 import io.leoplatform.schema.Field;
+import io.leoplatform.sdk.ExecutorManager;
 import io.leoplatform.sdk.changes.DomainQuery;
 import io.leoplatform.sdk.changes.DomainResolver;
 import io.leoplatform.sdk.changes.JsonDomainData;
@@ -9,53 +9,57 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonArrayBuilder;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
+import java.util.stream.Stream.Builder;
 
+@Singleton
 public class OracleRowResolver implements DomainResolver {
     private static final Logger log = LoggerFactory.getLogger(OracleRowResolver.class);
+    private static final int BATCH_SIZE = 1_000;
 
-    private final ChangeSource source;
     private final DomainQuery domainQuery;
     private final JsonDomainData jsonDomainData;
+    private final ExecutorManager manager;
 
     @Inject
-    public OracleRowResolver(ChangeSource source, DomainQuery domainQuery, JsonDomainData jsonDomainData) {
-        this.source = source;
+    public OracleRowResolver(DomainQuery domainQuery, JsonDomainData jsonDomainData, ExecutorManager manager) {
         this.domainQuery = domainQuery;
         this.jsonDomainData = jsonDomainData;
+        this.manager = manager;
     }
 
     @Override
     public JsonArray toResultJson(String sourceName, BlockingQueue<Field> fields) {
-        JsonArrayBuilder builder = Json.createArrayBuilder();
-        while (!fields.isEmpty()) {
-            List<Field> values = new LinkedList<>();
-            fields.drainTo(values, 1_000);
-            String sql = domainQuery.generateSql(sourceName, values);
-            builder.add(toJson(sql));
-        }
-        return builder.build();
+        return splitAsBatches(fields)
+            .parallel()
+            .map(b -> domainQuery.generateSql(sourceName, b))
+            .map(this::toJsonAsync)
+            .map(CompletableFuture::join)
+            .flatMap(Collection::stream)
+            .collect(Json::createArrayBuilder, JsonArrayBuilder::add, JsonArrayBuilder::addAll)
+            .build();
     }
 
-    private JsonArray toJson(String sql) {
-        try (Connection conn = source.connection()) {
-            try (Statement stmt = conn.createStatement()) {
-                return jsonDomainData.toJson(stmt.executeQuery(sql));
-            } catch (SQLException se) {
-                log.error("Invalid SQL discovered {}", sql);
-                throw new IllegalArgumentException(se);
-            }
-        } catch (SQLException s) {
-            log.warn("Unable to contact Oracle database");
-            throw new IllegalStateException("Error retrieving source changes", s);
+    private CompletableFuture<JsonArray> toJsonAsync(String sql) {
+        return CompletableFuture.supplyAsync(() -> jsonDomainData.toJson(sql), manager.get());
+    }
+
+    private Stream<List<Field>> splitAsBatches(BlockingQueue<Field> fields) {
+        Builder<List<Field>> batchBuilder = Stream.builder();
+        while (!fields.isEmpty()) {
+            List<Field> batch = new LinkedList<>();
+            fields.drainTo(batch, BATCH_SIZE);
+            batchBuilder.accept(batch);
         }
+        return batchBuilder.build();
     }
 }

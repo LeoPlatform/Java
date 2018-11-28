@@ -75,6 +75,8 @@ public class AsyncChangeQueue implements SchemaChangeQueue {
             } catch (InterruptedException e) {
                 log.warn("Oracle change queue stopped unexpectedly");
                 running.set(false);
+            } catch (Exception e) {
+                log.error("Problem loading domain object", e);
             } finally {
                 lock.unlock();
             }

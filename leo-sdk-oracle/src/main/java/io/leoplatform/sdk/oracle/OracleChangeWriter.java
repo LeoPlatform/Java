@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 
 import static io.leoplatform.schema.FieldType.STRING;
 import static io.leoplatform.schema.Source.ORACLE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.*;
 
 @Singleton
@@ -70,7 +71,7 @@ public final class OracleChangeWriter implements DatabaseChangeListener {
             Queue<DatabaseChangeEvent> toWrite = new LinkedList<>();
             lock.lock();
             try {
-                changedRows.await();
+                changedRows.await(500, MILLISECONDS);
                 payloads.drainTo(toWrite);
             } catch (InterruptedException e) {
                 log.warn("Oracle batch change writer stopped unexpectedly");
