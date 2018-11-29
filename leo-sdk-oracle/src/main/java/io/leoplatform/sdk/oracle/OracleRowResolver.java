@@ -21,6 +21,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
 
+import static javax.json.JsonValue.EMPTY_JSON_ARRAY;
+
 @Singleton
 public class OracleRowResolver implements DomainResolver {
     private static final Logger log = LoggerFactory.getLogger(OracleRowResolver.class);
@@ -39,9 +41,9 @@ public class OracleRowResolver implements DomainResolver {
 
     @Override
     public JsonArray toResultJson(String sourceName, BlockingQueue<Field> fields) {
-        return splitAsBatches(fields)
+        return drainAsBatches(fields)
             .parallel()
-            .map(b -> domainQuery.generateSql(sourceName, b))
+            .map(batch -> generateSql(sourceName, batch))
             .map(this::toJsonAsync)
             .map(CompletableFuture::join)
             .flatMap(Collection::stream)
@@ -49,11 +51,17 @@ public class OracleRowResolver implements DomainResolver {
             .build();
     }
 
-    private CompletableFuture<JsonArray> toJsonAsync(String sql) {
-        return CompletableFuture.supplyAsync(() -> jsonDomainData.toJson(sql), manager.get());
+    private String generateSql(String sourceName, List<Field> batch) {
+        return domainQuery.generateSql(sourceName, batch);
     }
 
-    private Stream<List<Field>> splitAsBatches(BlockingQueue<Field> fields) {
+    private CompletableFuture<JsonArray> toJsonAsync(String sql) {
+        return CompletableFuture
+            .supplyAsync(() -> jsonDomainData.toJson(sql), manager.get())
+            .exceptionally(th -> EMPTY_JSON_ARRAY);
+    }
+
+    private Stream<List<Field>> drainAsBatches(BlockingQueue<Field> fields) {
         Builder<List<Field>> batchBuilder = Stream.builder();
         while (!fields.isEmpty()) {
             List<Field> batch = new LinkedList<>();

@@ -40,8 +40,8 @@ public class JacksonDomainJson implements JsonDomainData {
                 throw new IllegalArgumentException(se);
             }
         } catch (SQLException s) {
-            log.error("Unable to request domain data", s);
-            return JsonArray.EMPTY_JSON_ARRAY;
+            log.error("Unable to connect while generating domain data");
+            throw new IllegalStateException("Error creating connection", s);
         }
     }
 

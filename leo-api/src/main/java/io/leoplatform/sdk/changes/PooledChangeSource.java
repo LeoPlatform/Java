@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.regex.Pattern;
 import static java.util.regex.Pattern.LITERAL;
 import static java.util.stream.Collectors.toList;
 
+@Singleton
 public class PooledChangeSource implements ChangeSource {
     private static final Logger log = LoggerFactory.getLogger(PooledChangeSource.class);
 

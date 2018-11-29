@@ -11,6 +11,7 @@ dependencies {
             project(':leo-api'),
             'com.oracle.jdbc:ojdbc8:12.2.0.1'
     )
+    testCompile('org.mockito:mockito-core:2.23.4')
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {

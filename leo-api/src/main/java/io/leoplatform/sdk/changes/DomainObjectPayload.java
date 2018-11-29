@@ -10,8 +10,11 @@ import javax.inject.Singleton;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Stream;
@@ -33,9 +36,7 @@ public class DomainObjectPayload implements ChangeReactor {
 
     @Override
     public void loadChanges(BlockingQueue<ChangeEvent> changeEvent) {
-        List<JsonObject> domainObjects = distinctChanges(changeEvent).entrySet().stream()
-            .map(this::toJson)
-            .collect(toList());
+        List<JsonObject> domainObjects = loadDomainObjects(changeEvent);
         try {
             payloadWriter.write(domainObjects);
         } catch (Exception e) {
@@ -48,7 +49,14 @@ public class DomainObjectPayload implements ChangeReactor {
         payloadWriter.end();
     }
 
-    private JsonObject toJson(Entry<String, BlockingQueue<Field>> changes) {
+    private List<JsonObject> loadDomainObjects(BlockingQueue<ChangeEvent> changeEvent) {
+        return tableChanges(changeEvent)
+            .entrySet().stream()
+            .map(this::resolveDomainObjects)
+            .collect(toList());
+    }
+
+    private JsonObject resolveDomainObjects(Entry<String, BlockingQueue<Field>> changes) {
         JsonArray results = domainResolver.toResultJson(changes.getKey(), changes.getValue());
         log.info("Loaded {} domain objects from {}", results.size(), changes.getKey());
         return Json.createObjectBuilder()
@@ -56,14 +64,11 @@ public class DomainObjectPayload implements ChangeReactor {
             .build();
     }
 
-    private Map<String, BlockingQueue<Field>> distinctChanges(Queue<ChangeEvent> changeEvent) {
-
+    private Map<String, BlockingQueue<Field>> tableChanges(Queue<ChangeEvent> changeEvent) {
         return changeEvent.parallelStream()
-            .filter(c -> Optional.of(c).map(ChangeEvent::getName).isPresent())
             .collect(toConcurrentMap(
                 ChangeEvent::getName,
                 c -> c.getFields().parallelStream()
-                    .filter(f -> Optional.of(f).map(Field::getValue).isPresent())
                     .collect(toCollection(LinkedBlockingQueue::new)),
                 (f1, f2) -> Stream.of(f1, f2)
                     .flatMap(Collection::stream)

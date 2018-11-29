@@ -1,6 +1,7 @@
 package io.leoplatform.schema;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public final class Field {
     private final String field;
@@ -8,9 +9,12 @@ public final class Field {
     private final String value;
 
     public Field(String field, FieldType type, String value) {
-        this.field = field;
-        this.type = type;
-        this.value = value;
+        this.field = Optional.ofNullable(field)
+            .orElseThrow(() -> new IllegalArgumentException("Field name required"));
+        this.type = Optional.ofNullable(type)
+            .orElseThrow(() -> new IllegalArgumentException("Field type required"));
+        this.value = Optional.ofNullable(value)
+            .orElseThrow(() -> new IllegalArgumentException("Field value required"));
     }
 
     public String getField() {
@@ -32,13 +36,18 @@ public final class Field {
         if (o == null || getClass() != o.getClass())
             return false;
         Field field1 = (Field) o;
-        return Objects.equals(field, field1.field) &&
+        return field.equals(field1.field) &&
             type == field1.type &&
-            Objects.equals(value, field1.value);
+            value.equals(field1.value);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(field, type, value);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Field{field='%s', type=%s, value='%s'}", field, type, value);
     }
 }

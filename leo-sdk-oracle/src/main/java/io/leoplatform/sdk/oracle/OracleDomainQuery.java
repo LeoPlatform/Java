@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +15,7 @@ import static io.leoplatform.schema.FieldType.STRING;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
+@Singleton
 public class OracleDomainQuery implements DomainQuery {
     private static final Logger log = LoggerFactory.getLogger(OracleDomainQuery.class);
 

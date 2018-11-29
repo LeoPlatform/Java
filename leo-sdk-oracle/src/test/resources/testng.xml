@@ -6,6 +6,7 @@
         </packages>
         <classes>
             <class name="io.leoplatform.sdk.oracle.OracleDomainQueryTest"/>
+            <class name="io.leoplatform.sdk.oracle.OracleRowResolverTest"/>
         </classes>
     </test>
 </suite>

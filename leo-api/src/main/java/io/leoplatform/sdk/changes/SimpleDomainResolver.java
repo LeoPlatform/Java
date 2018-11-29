@@ -4,10 +4,12 @@ import io.leoplatform.schema.Field;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Singleton;
 import javax.json.Json;
 import javax.json.JsonArray;
 import java.util.concurrent.BlockingQueue;
 
+@Singleton
 public class SimpleDomainResolver implements DomainResolver {
     private static final Logger log = LoggerFactory.getLogger(SimpleDomainResolver.class);
 
