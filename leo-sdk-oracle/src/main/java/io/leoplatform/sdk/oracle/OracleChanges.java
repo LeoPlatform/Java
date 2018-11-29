@@ -9,24 +9,24 @@ import io.leoplatform.sdk.changes.PayloadWriter;
 public final class OracleChanges {
     public static OracleChangeLoader of(LoadingStream stream) {
         return DaggerOraclePlatform.builder()
-            .loadingStream(stream)
             .executorManager(internalExecutor())
+            .loadingStream(stream)
             .build()
             .oracleChangeLoader();
     }
 
     public static OracleChangeLoader ofLoader(LoadingStream stream) {
         return DaggerOraclePlatform.builder()
-            .loadingStream(stream)
             .executorManager(internalExecutor())
+            .loadingStream(stream)
             .build()
             .oracleChangeLoader();
     }
 
     public static OracleChangeLoader ofWriter(PayloadWriter writer) {
         return DaggerDomainObjectPlatform.builder()
-            .loadingStream(new NullLoadingStream())
             .executorManager(internalExecutor())
+            .loadingStream(new NullLoadingStream())
             .payloadWriter(writer)
             .build()
             .oracleChangeLoader();

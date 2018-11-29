@@ -23,7 +23,6 @@ import java.util.stream.IntStream;
 
 import static io.leoplatform.schema.FieldType.STRING;
 import static java.util.stream.Collectors.toCollection;
-import static javax.json.JsonValue.EMPTY_JSON_ARRAY;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
@@ -94,7 +93,7 @@ public class OracleRowResolverTest {
     public void testDomainException() {
         when(jsonDomainData.toJson(anyString())).thenThrow(IllegalStateException.class);
         JsonArray a = oracleRowResolver.toResultJson("TBL1", fields(3));
-        assertEquals(a, EMPTY_JSON_ARRAY, "Domain data exception incorrectly handled");
+        assertEquals(a, Json.createArrayBuilder().build(), "Domain data exception incorrectly handled");
     }
 
     private BlockingQueue<Field> fields(int count) {

@@ -13,6 +13,19 @@ import javax.inject.Singleton;
 
 @Module
 public final class DomainObjectModule {
+
+    @Singleton
+    @Provides
+    public static Config provideOracleConfig() {
+        return ConfigFactory.load("oracle_config.properties");
+    }
+
+    @Singleton
+    @Provides
+    public static SchemaChangeQueue provideSchemaChangeQueue(@Named("DomainObjectReactor") ChangeReactor changeReactor, ExecutorManager executorManager) {
+        return new AsyncChangeQueue(changeReactor, executorManager);
+    }
+
     @Singleton
     @Provides
     public static OracleChangeSource provideOracleChangeSource(Config oracleConfig) {
@@ -39,8 +52,8 @@ public final class DomainObjectModule {
 
     @Singleton
     @Provides
-    public static Config provideOracleConfig() {
-        return ConfigFactory.load("oracle_config.properties");
+    public static OracleChangeWriter provideOracleChangeWriter(SchemaChangeQueue changeQueue, ExecutorManager executorManager) {
+        return new OracleChangeWriter(changeQueue, executorManager);
     }
 
     @Singleton
@@ -61,11 +74,5 @@ public final class DomainObjectModule {
     @Named("DomainObjectReactor")
     public static ChangeReactor provideDomainObjectReactor(@Named("DomainObjectResolver") DomainResolver domainResolver, PayloadWriter payloadWriter) {
         return new DomainObjectPayload(domainResolver, payloadWriter);
-    }
-
-    @Singleton
-    @Provides
-    public static SchemaChangeQueue provideSchemaChangeQueue(@Named("DomainObjectReactor") ChangeReactor changeReactor, ExecutorManager executorManager) {
-        return new AsyncChangeQueue(changeReactor, executorManager);
     }
 }

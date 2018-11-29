@@ -36,6 +36,7 @@ public class DomainObjectPayload implements ChangeReactor {
 
     @Override
     public void loadChanges(BlockingQueue<ChangeEvent> changeEvent) {
+        log.debug("Translating {} change events", changeEvent.size());
         List<JsonObject> domainObjects = loadDomainObjects(changeEvent);
         try {
             payloadWriter.write(domainObjects);
@@ -57,8 +58,9 @@ public class DomainObjectPayload implements ChangeReactor {
     }
 
     private JsonObject resolveDomainObjects(Entry<String, BlockingQueue<Field>> changes) {
+        log.debug("Loading {} domain objects", changes.getKey());
         JsonArray results = domainResolver.toResultJson(changes.getKey(), changes.getValue());
-        log.info("Loaded {} domain objects from {}", results.size(), changes.getKey());
+        log.debug("Loaded {} domain objects from {}", results.size(), changes.getKey());
         return Json.createObjectBuilder()
             .add(changes.getKey(), results)
             .build();

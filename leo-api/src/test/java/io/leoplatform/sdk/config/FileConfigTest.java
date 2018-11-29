@@ -1,6 +1,5 @@
 package io.leoplatform.sdk.config;
 
-import io.leoplatform.sdk.DaggerSDKPlatform;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -13,7 +12,7 @@ public class FileConfigTest {
     @BeforeClass
     void setUp() {
         System.setProperty("JAVA_ENV", "DevBus");
-        fileConfig = DaggerSDKPlatform.create().connectorConfig();
+        fileConfig = new FileConfig();
     }
 
     @Test

@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
-import javax.json.Json;
 import javax.json.JsonArray;
 import java.util.concurrent.BlockingQueue;
 
@@ -16,7 +15,7 @@ public class SimpleDomainResolver implements DomainResolver {
     @Override
     public JsonArray toResultJson(String sourceName, BlockingQueue<Field> fields) {
         log.warn("Using unimplemented domain resolver");
-        //TODO: implement this correctly
-        return Json.createArrayBuilder().build();
+        throw new IllegalStateException("Unimplemented domain resolver");
+        //TODO: implement this for others
     }
 }

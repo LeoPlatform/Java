@@ -4,7 +4,7 @@ plugins {
     id 'signing'
 }
 
-version = '1.0.6'
+version = '1.0.7'
 
 dependencies {
     compile(
@@ -14,7 +14,6 @@ dependencies {
             'com.amazonaws:aws-java-sdk-s3:1.11.457',
             'com.amazonaws:aws-lambda-java-core:1.2.0',
             'com.amazonaws:aws-lambda-java-events:2.2.4',
-            'com.fasterxml.jackson.core:jackson-core:2.9.7',
             'com.jcraft:jzlib:1.1.3'
     )
 }

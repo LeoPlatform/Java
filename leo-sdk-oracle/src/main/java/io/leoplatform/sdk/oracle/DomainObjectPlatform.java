@@ -7,6 +7,7 @@ import io.leoplatform.schema.ChangeSource;
 import io.leoplatform.sdk.ExecutorManager;
 import io.leoplatform.sdk.LoadingStream;
 import io.leoplatform.sdk.SDKModule;
+import io.leoplatform.sdk.SDKPlatform;
 import io.leoplatform.sdk.changes.*;
 
 import javax.inject.Named;
@@ -14,7 +15,7 @@ import javax.inject.Singleton;
 
 @Singleton
 @Component(modules = {SDKModule.class, DomainObjectModule.class})
-public interface DomainObjectPlatform extends OraclePlatform {
+public interface DomainObjectPlatform extends SDKPlatform {
 
     @Component.Builder
     interface Builder {
@@ -30,17 +31,19 @@ public interface DomainObjectPlatform extends OraclePlatform {
         DomainObjectPlatform build();
     }
 
+    Config oracleConfig();
+
     SchemaChangeQueue changeQueue();
-
-    OracleChangeRegistrar oracleChangeRegistrar();
-
-    OracleChangeLoader oracleChangeLoader();
 
     OracleChangeSource oracleChangeSource();
 
     ChangeSource changeSource();
 
-    Config oracleConfig();
+    OracleChangeRegistrar oracleChangeRegistrar();
+
+    OracleChangeLoader oracleChangeLoader();
+
+    OracleChangeWriter oracleChangeWriter();
 
     DomainQuery domainQuery();
 

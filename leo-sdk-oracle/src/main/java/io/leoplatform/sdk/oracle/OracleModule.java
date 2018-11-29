@@ -25,6 +25,12 @@ public final class OracleModule {
 
     @Singleton
     @Provides
+    public static SchemaChangeQueue provideSchemaChangeQueue(@Named("LeoChangeReactor") ChangeReactor changeReactor, ExecutorManager executorManager) {
+        return new AsyncChangeQueue(changeReactor, executorManager);
+    }
+
+    @Singleton
+    @Provides
     public static OracleChangeSource provideOracleChangeSource(Config oracleConfig) {
         return new ConfigFileSource(oracleConfig);
     }
@@ -51,11 +57,5 @@ public final class OracleModule {
     @Provides
     public static OracleChangeWriter provideOracleChangeWriter(SchemaChangeQueue changeQueue, ExecutorManager executorManager) {
         return new OracleChangeWriter(changeQueue, executorManager);
-    }
-
-    @Singleton
-    @Provides
-    public static SchemaChangeQueue provideSchemaChangeQueue(@Named("LeoChangeReactor") ChangeReactor changeReactor, ExecutorManager executorManager) {
-        return new AsyncChangeQueue(changeReactor, executorManager);
     }
 }
