@@ -66,9 +66,10 @@ public class JacksonDomainJson implements JsonDomainData {
 
     private String colValue(ResultSet rs, int colNum) {
         try {
-            return rs.getObject(colNum).toString();
+            return Optional.ofNullable(rs.getObject(colNum))
+                .map(Object::toString)
+                .orElse("");
         } catch (SQLException s) {
-            log.warn("Unable to retrieve value for column {}", colNum);
             return "";
         }
     }
