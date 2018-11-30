@@ -6,10 +6,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObjectBuilder;
+import javax.json.*;
 import java.sql.*;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map;
@@ -56,21 +53,22 @@ public class JacksonDomainJson implements JsonDomainData {
             IntStream.rangeClosed(1, numCols)
                 .forEachOrdered(colNum -> {
                     String colName = colNames.get(colNum);
-                    String colValue = colValue(rs, colNum);
-                    b.add(colName, colValue);
+                    b.add(colName, toJson(rs, colNum));
                 });
             arrayBuilder.add(b.build());
         }
         return arrayBuilder.build();
     }
 
-    private String colValue(ResultSet rs, int colNum) {
+    private JsonValue toJson(ResultSet rs, int colNum) {
         try {
             return Optional.ofNullable(rs.getObject(colNum))
                 .map(Object::toString)
-                .orElse("");
+                .map(Json::createValue)
+                .map(JsonValue.class::cast)
+                .orElse(JsonValue.NULL);
         } catch (SQLException s) {
-            return "";
+            return JsonValue.NULL;
         }
     }
 
