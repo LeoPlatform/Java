@@ -37,7 +37,7 @@ public class JacksonDomainJson implements JsonDomainData {
                 throw new IllegalArgumentException(se);
             }
         } catch (SQLException s) {
-            log.error("Unable to connect while generating domain data");
+            log.warn("Unable to connect while generating domain data");
             throw new IllegalStateException("Error creating connection", s);
         }
     }
@@ -68,6 +68,7 @@ public class JacksonDomainJson implements JsonDomainData {
                 .map(JsonValue.class::cast)
                 .orElse(JsonValue.NULL);
         } catch (SQLException s) {
+            log.warn("Could not convert result to json", s);
             return JsonValue.NULL;
         }
     }

@@ -39,7 +39,6 @@ public class OracleRowResolver implements DomainResolver {
 
     @Override
     public JsonArray toResultJson(String sourceName, BlockingQueue<Field> fields) {
-        //TODO: WTF
         JsonArray a = CompletableFuture
             .supplyAsync(() -> drainAsBatches(fields), manager.get())
             .thenApplyAsync(listStream -> {
@@ -49,7 +48,7 @@ public class OracleRowResolver implements DomainResolver {
                     .map(this::toJsonAsync)
                     .map(CompletableFuture::join)
                     .flatMap(Collection::stream)
-                    .collect(Json::createArrayBuilder, JsonArrayBuilder::add, (j1, j2) -> j1.addAll(j2))
+                    .collect(Json::createArrayBuilder, JsonArrayBuilder::add, JsonArrayBuilder::addAll)
                     .build();
             }, manager.get())
             .exceptionally(throwable -> {
@@ -57,20 +56,6 @@ public class OracleRowResolver implements DomainResolver {
                 return Json.createArrayBuilder().build();
             })
             .join();
-
-//        JsonArray a = drainAsBatches(fields)
-//            .peek(b -> log.debug("Processing batch with {} fields", b.size()))
-//            .parallel()
-//            .map(batch -> generateSql(sourceName, batch))
-//            .map(this::toJsonAsync)
-//            .map(f -> f
-//                .exceptionally(t -> {
-//                    log.error("Could not retrieve domain objects", t);
-//                    return Json.createArrayBuilder().build();
-//                }).join())
-//            .flatMap(Collection::stream)
-//            .collect(Json::createArrayBuilder, JsonArrayBuilder::add, (j1, j2) -> j1.addAll(j2))
-//            .build();
         log.debug("Created JSON array of {} elements", a.size());
         return a;
     }
