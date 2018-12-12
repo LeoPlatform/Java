@@ -21,7 +21,7 @@ import static java.math.RoundingMode.HALF_UP;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Singleton
-public class InternalThresholdMonitor implements ThresholdMonitor {
+public final class InternalThresholdMonitor implements ThresholdMonitor {
     private static final Logger log = LoggerFactory.getLogger(InternalThresholdMonitor.class);
 
     private final long maxBytesPerSecond;

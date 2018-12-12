@@ -27,7 +27,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 
-public class OracleRowResolverTest {
+public final class OracleRowResolverTest {
 
     @Mock
     private DomainQuery domainQuery;

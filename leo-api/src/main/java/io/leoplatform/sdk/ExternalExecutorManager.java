@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 @Singleton
-public class ExternalExecutorManager implements ExecutorManager {
+public final class ExternalExecutorManager implements ExecutorManager {
     private static final Logger log = LoggerFactory.getLogger(ExternalExecutorManager.class);
 
     private final Executor externalService;

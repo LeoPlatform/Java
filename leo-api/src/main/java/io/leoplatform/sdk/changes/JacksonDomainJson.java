@@ -17,7 +17,7 @@ import java.util.stream.IntStream;
 import static java.util.stream.Collectors.toMap;
 
 @Singleton
-public class JacksonDomainJson implements JsonDomainData {
+public final class JacksonDomainJson implements JsonDomainData {
     private static final Logger log = LoggerFactory.getLogger(JacksonDomainJson.class);
     private final ChangeSource source;
 

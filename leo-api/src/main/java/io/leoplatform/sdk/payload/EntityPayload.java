@@ -16,7 +16,7 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
  */
 @JsonPropertyOrder({"payload", "id", "event", "event_source_timestamp", "timestamp", "eid", "correlation_id"})
 @JsonInclude(NON_NULL)
-public class EntityPayload {
+public final class EntityPayload {
 
     private final JsonObject payload;
     private final String id;

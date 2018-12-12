@@ -9,7 +9,7 @@ import javax.inject.Singleton;
 import java.util.Optional;
 
 @Singleton
-public class FileConfig implements ConnectorConfig {
+public final class FileConfig implements ConnectorConfig {
     private static final String PROFILE_ENV = "JAVA_ENV";
     private static final Config cfg = ConfigFactory.load("leo_config.properties");
 

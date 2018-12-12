@@ -33,7 +33,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Singleton
-public class S3TransferManager {
+public final class S3TransferManager {
     private static final Logger log = LoggerFactory.getLogger(S3TransferManager.class);
 
     private final String name;

@@ -1,6 +1,6 @@
 package io.leoplatform.sdk.payload;
 
-public class FileSegment {
+public final class FileSegment {
     private final StorageEventOffset offset;
     private final byte[] segment;
 

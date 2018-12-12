@@ -1,6 +1,6 @@
 package io.leoplatform.sdk.payload;
 
-public class StorageUnits {
+public final class StorageUnits {
     private final Long units;
 
     public StorageUnits(Long units) {

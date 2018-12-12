@@ -16,7 +16,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 @Singleton
-public class OracleDomainQuery implements DomainQuery {
+public final class OracleDomainQuery implements DomainQuery {
     private static final Logger log = LoggerFactory.getLogger(OracleDomainQuery.class);
 
     private final Config oracleConfig;

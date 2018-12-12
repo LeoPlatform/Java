@@ -8,7 +8,7 @@ import javax.inject.Singleton;
 import java.util.concurrent.BlockingQueue;
 
 @Singleton
-public class KinesisChangesPayload implements ChangeReactor {
+public final class KinesisChangesPayload implements ChangeReactor {
     private static final Logger log = LoggerFactory.getLogger(KinesisChangesPayload.class);
 
     @Override

@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Singleton
-public class BusWriter implements PayloadWriter {
+public final class BusWriter implements PayloadWriter {
     private static final Logger log = LoggerFactory.getLogger(BusWriter.class);
 
     private final LoadingStream stream;

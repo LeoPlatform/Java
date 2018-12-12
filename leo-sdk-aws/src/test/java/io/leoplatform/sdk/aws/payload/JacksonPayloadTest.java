@@ -14,7 +14,7 @@ import java.io.StringReader;
 import java.time.Instant;
 import java.util.Random;
 
-public class JacksonPayloadTest {
+public final class JacksonPayloadTest {
 
     private final Random r = new Random();
     private final LoadingBot bot = Bots.ofLoading("loading-bot-name", "queue-name");

@@ -12,7 +12,7 @@ import javax.inject.Singleton;
 import java.util.concurrent.Executor;
 
 @Module
-public class SDKModule {
+public final class SDKModule {
     @Singleton
     @Provides
     public static ConnectorConfig provideConnectorConfig() {

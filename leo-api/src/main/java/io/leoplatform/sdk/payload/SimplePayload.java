@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-public class SimplePayload implements EventPayload {
+public final class SimplePayload implements EventPayload {
 
     private final String id;
     private final Instant eventTime;

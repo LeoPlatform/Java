@@ -14,7 +14,7 @@ import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class InternalThresholdMonitorTest {
+public final class InternalThresholdMonitorTest {
 
     private InternalThresholdMonitor monitor;
 

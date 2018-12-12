@@ -7,7 +7,7 @@ import javax.json.Json;
 
 import static org.testng.Assert.assertEquals;
 
-public class EntityPayloadTest {
+public final class EntityPayloadTest {
 
     @Test
     public void testGetPayload() {

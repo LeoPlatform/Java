@@ -6,6 +6,10 @@ public final class Bots {
         return new SimpleLoadingBot(name, new SimpleQueue(destination));
     }
 
+    public static OffloadingBot ofOffloading(String name, String source) {
+        return new SimpleOffloadingBot(name, new SimpleQueue(source));
+    }
+
     public static LoadingBot ofChanges() {
         return new ChangeLoadingBot();
     }

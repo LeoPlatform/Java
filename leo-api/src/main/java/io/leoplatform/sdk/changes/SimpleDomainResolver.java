@@ -9,7 +9,7 @@ import javax.json.JsonArray;
 import java.util.concurrent.BlockingQueue;
 
 @Singleton
-public class SimpleDomainResolver implements DomainResolver {
+public final class SimpleDomainResolver implements DomainResolver {
     private static final Logger log = LoggerFactory.getLogger(SimpleDomainResolver.class);
 
     @Override

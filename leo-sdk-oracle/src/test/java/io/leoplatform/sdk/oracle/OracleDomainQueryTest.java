@@ -12,7 +12,7 @@ import static io.leoplatform.schema.FieldType.STRING;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
-public class OracleDomainQueryTest {
+public final class OracleDomainQueryTest {
 
     private DomainQuery oracleQuery = new OracleDomainQuery(ConfigFactory.load("oracle_config.properties"));
 

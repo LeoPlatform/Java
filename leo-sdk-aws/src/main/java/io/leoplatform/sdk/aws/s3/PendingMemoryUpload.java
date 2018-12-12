@@ -20,12 +20,12 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.stream.Collectors.toList;
 
-public class PendingMemoryUpload implements PendingS3Upload {
+public final class PendingMemoryUpload implements PendingS3Upload {
 
     private final String fileName;
     private final Queue<FileSegment> segments;
 
-    public PendingMemoryUpload(String fileName, Queue<FileSegment> segments) {
+    PendingMemoryUpload(String fileName, Queue<FileSegment> segments) {
         this.fileName = fileName;
         this.segments = segments;
     }

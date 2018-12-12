@@ -5,7 +5,7 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
-public class FileConfigTest {
+public final class FileConfigTest {
 
     private ConnectorConfig fileConfig;
 

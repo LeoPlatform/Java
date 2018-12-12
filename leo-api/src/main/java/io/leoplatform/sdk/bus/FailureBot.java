@@ -2,7 +2,7 @@ package io.leoplatform.sdk.bus;
 
 import java.util.List;
 
-public class FailureBot implements EnrichmentBot {
+public final class FailureBot implements EnrichmentBot {
     @Override
     public StreamQueue source() {
         throw new IllegalArgumentException("Attempt to use a bot when one was not created");

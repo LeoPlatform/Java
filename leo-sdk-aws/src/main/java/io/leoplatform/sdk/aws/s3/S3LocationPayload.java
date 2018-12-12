@@ -1,6 +1,6 @@
 package io.leoplatform.sdk.aws.s3;
 
-public class S3LocationPayload {
+public final class S3LocationPayload {
     private final String bucket;
     private final String key;
 

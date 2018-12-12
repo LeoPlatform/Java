@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Singleton
-public class InternalExecutorManager implements ExecutorManager {
+public final class InternalExecutorManager implements ExecutorManager {
     private static final Logger log = LoggerFactory.getLogger(InternalExecutorManager.class);
 
     private static final AtomicInteger threadNum = new AtomicInteger();

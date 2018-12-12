@@ -26,7 +26,7 @@ import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class JSDKGzipWriterTest {
+public final class JSDKGzipWriterTest {
 
     private final LoadingBot bot = Bots.ofLoading("loading-bot-name", "queue-name");
     private S3JsonPayload s3JsonPayload = new JacksonPayload(bot);

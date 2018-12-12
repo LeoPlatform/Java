@@ -8,7 +8,7 @@ import javax.inject.Singleton;
 import java.util.concurrent.BlockingQueue;
 
 @Singleton
-public class LeoChangesPayload implements ChangeReactor {
+public final class LeoChangesPayload implements ChangeReactor {
     private static final Logger log = LoggerFactory.getLogger(LeoChangesPayload.class);
 
     @Override

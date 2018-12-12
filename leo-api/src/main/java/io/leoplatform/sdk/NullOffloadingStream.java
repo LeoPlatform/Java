@@ -11,7 +11,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 @Singleton
-public class NullOffloadingStream implements OffloadingStream {
+public final class NullOffloadingStream implements OffloadingStream {
     private static final Logger log = LoggerFactory.getLogger(NullOffloadingStream.class);
 
     @Inject

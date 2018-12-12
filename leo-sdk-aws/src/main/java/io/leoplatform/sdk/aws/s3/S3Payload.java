@@ -9,7 +9,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-public class S3Payload implements StoragePayload {
+public final class S3Payload implements StoragePayload {
     private final String event;
     private final String start;
     private final String end;

@@ -22,7 +22,7 @@ import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
 
 @Singleton
-public class OracleRowResolver implements DomainResolver {
+public final class OracleRowResolver implements DomainResolver {
     private static final Logger log = LoggerFactory.getLogger(OracleRowResolver.class);
     private static final int BATCH_SIZE = 1_000;
 

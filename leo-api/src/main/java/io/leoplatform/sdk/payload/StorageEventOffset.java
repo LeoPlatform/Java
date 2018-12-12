@@ -1,6 +1,6 @@
 package io.leoplatform.sdk.payload;
 
-public class StorageEventOffset {
+public final class StorageEventOffset {
     private final String event;
     private final Long start;
     private final Long end;

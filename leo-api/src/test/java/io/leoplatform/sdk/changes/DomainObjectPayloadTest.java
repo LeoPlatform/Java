@@ -27,7 +27,7 @@ import static java.util.stream.Collectors.toList;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-public class DomainObjectPayloadTest {
+public final class DomainObjectPayloadTest {
 
     @Mock
     private DomainResolver domainResolver;

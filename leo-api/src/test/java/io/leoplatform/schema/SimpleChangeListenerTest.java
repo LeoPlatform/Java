@@ -11,7 +11,7 @@ import java.util.Set;
 import static io.leoplatform.sdk.changes.SimpleChangeListener.DEFAULT_PORT;
 import static org.testng.Assert.*;
 
-public class SimpleChangeListenerTest {
+public final class SimpleChangeListenerTest {
 
     @Test
     public void testGetDefaultHost() throws UnknownHostException {

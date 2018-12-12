@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 
 @JsonInclude(NON_NULL)
-public class StreamCorrelation {
+public final class StreamCorrelation {
     private final String source;
     private final Long start;
     private final Long units;

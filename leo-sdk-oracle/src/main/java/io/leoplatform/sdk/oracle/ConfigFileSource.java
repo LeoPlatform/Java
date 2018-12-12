@@ -19,7 +19,7 @@ import static java.util.regex.Pattern.LITERAL;
 import static java.util.stream.Collectors.toList;
 
 @Singleton
-public class ConfigFileSource implements OracleChangeSource {
+public final class ConfigFileSource implements OracleChangeSource {
     private static final Logger log = LoggerFactory.getLogger(ConfigFileSource.class);
 
     private static final String COLUMN_SEPARATOR = ",";

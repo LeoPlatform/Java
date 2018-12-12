@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.Map;
 
-public class StorageStats {
+public final class StorageStats {
     @JsonIgnore
     private final Map<String, StorageUnits> botUnits;
 

@@ -22,7 +22,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.*;
 
 @Singleton
-public class DomainObjectPayload implements ChangeReactor {
+public final class DomainObjectPayload implements ChangeReactor {
     private static final Logger log = LoggerFactory.getLogger(DomainObjectPayload.class);
 
     private final DomainResolver domainResolver;

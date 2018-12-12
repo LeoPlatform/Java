@@ -20,7 +20,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Singleton
-public class AsyncChangeQueue implements SchemaChangeQueue {
+public final class AsyncChangeQueue implements SchemaChangeQueue {
     private static final Logger log = LoggerFactory.getLogger(AsyncChangeQueue.class);
 
     private static final Duration maxQueueTime = Duration.ofMillis(200);

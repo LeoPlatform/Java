@@ -19,7 +19,7 @@ import static java.util.regex.Pattern.LITERAL;
 import static java.util.stream.Collectors.toList;
 
 @Singleton
-public class PooledChangeSource implements ChangeSource {
+public final class PooledChangeSource implements ChangeSource {
     private static final Logger log = LoggerFactory.getLogger(PooledChangeSource.class);
 
     private final Config oracleConfig;
