@@ -2,6 +2,7 @@ package io.leoplatform.sdk.aws;
 
 import io.leoplatform.sdk.ExecutorManager;
 import io.leoplatform.sdk.OffloadingStream;
+import io.leoplatform.sdk.SimpleStats;
 import io.leoplatform.sdk.StreamStats;
 import io.leoplatform.sdk.payload.EntityPayload;
 import org.slf4j.Logger;
@@ -9,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -44,21 +44,6 @@ public final class AWSOffloadingStream implements OffloadingStream {
     }
 
     private CompletableFuture<StreamStats> noStats() {
-        return CompletableFuture.completedFuture(new StreamStats() {
-            @Override
-            public Long successes() {
-                return 0L;
-            }
-
-            @Override
-            public Long failures() {
-                return 0L;
-            }
-
-            @Override
-            public Duration totalTime() {
-                return Duration.between(Instant.now(), Instant.now());
-            }
-        });
+        return CompletableFuture.completedFuture(new SimpleStats(0L, 0L, Instant.now()));
     }
 }

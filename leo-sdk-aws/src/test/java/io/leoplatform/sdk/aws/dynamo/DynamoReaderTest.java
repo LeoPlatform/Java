@@ -1,5 +1,6 @@
 package io.leoplatform.sdk.aws.dynamo;
 
+import io.leoplatform.sdk.aws.ConfigurationResources;
 import io.leoplatform.sdk.bus.SimpleOffloadingBot;
 import io.leoplatform.sdk.config.ConnectorConfig;
 import io.leoplatform.sdk.payload.EntityPayload;
@@ -8,7 +9,7 @@ import java.util.stream.Stream;
 
 public final class DynamoReaderTest {
 
-    DynamoReader dynamoReader = new DynamoReader(testConfig());
+    DynamoReader dynamoReader = new DynamoReader(new ConfigurationResources(testConfig()));
 
     //    @Test
     public void testEvents() {

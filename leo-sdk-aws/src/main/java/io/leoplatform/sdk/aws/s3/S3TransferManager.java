@@ -1,8 +1,5 @@
 package io.leoplatform.sdk.aws.s3;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -11,18 +8,16 @@ import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.amazonaws.services.s3.transfer.model.UploadResult;
 import io.leoplatform.sdk.ExecutorManager;
+import io.leoplatform.sdk.SimpleStats;
 import io.leoplatform.sdk.StreamStats;
+import io.leoplatform.sdk.aws.AWSResources;
 import io.leoplatform.sdk.bus.LoadingBot;
-import io.leoplatform.sdk.config.ConnectorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.LinkedList;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,11 +43,11 @@ public final class S3TransferManager {
     private final Condition newUpload = lock.newCondition();
 
     @Inject
-    public S3TransferManager(ConnectorConfig config, ExecutorManager executorManager,
+    public S3TransferManager(AWSResources resources, ExecutorManager executorManager,
                              S3Results resultsProcessor, LoadingBot bot) {
-        this.name = config.value("Storage.Name");
+        this.name = resources.storage();
         this.s3TransferManager = TransferManagerBuilder.standard()
-                .withS3Client(client(config.valueOrElse("AwsProfile", "")))
+            .withS3Client(client(resources))
                 .withDisableParallelDownloads(false)
                 .build();
         this.resultsProcessor = resultsProcessor;
@@ -165,38 +160,14 @@ public final class S3TransferManager {
         }
     }
 
-    private AmazonS3 client(String awsProfile) {
+    private AmazonS3 client(AWSResources resources) {
         return AmazonS3ClientBuilder
                 .standard()
-                .withCredentials(credentials(awsProfile))
+            .withCredentials(resources.credentials())
                 .build();
     }
 
-    private AWSCredentialsProvider credentials(String awsProfile) {
-        return Optional.of(awsProfile)
-                .map(String::trim)
-                .filter(profile -> !profile.isEmpty())
-                .map(ProfileCredentialsProvider::new)
-                .map(AWSCredentialsProvider.class::cast)
-                .orElse(DefaultAWSCredentialsProviderChain.getInstance());
-    }
-
     private StreamStats getStats() {
-        return new StreamStats() {
-            @Override
-            public Long successes() {
-                return resultsProcessor.successes();
-            }
-
-            @Override
-            public Long failures() {
-                return resultsProcessor.failures();
-            }
-
-            @Override
-            public Duration totalTime() {
-                return Duration.between(resultsProcessor.start(), Instant.now());
-            }
-        };
+        return new SimpleStats(resultsProcessor.successes(), resultsProcessor.failures(), resultsProcessor.start());
     }
 }

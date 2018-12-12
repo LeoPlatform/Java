@@ -1,25 +1,20 @@
 package io.leoplatform.sdk.aws.kinesis;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.kinesis.producer.KinesisProducer;
 import com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration;
 import com.amazonaws.services.kinesis.producer.UserRecordResult;
 import io.leoplatform.sdk.ExecutorManager;
+import io.leoplatform.sdk.SimpleStats;
 import io.leoplatform.sdk.StreamStats;
-import io.leoplatform.sdk.config.ConnectorConfig;
+import io.leoplatform.sdk.aws.AWSResources;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.nio.ByteBuffer;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Condition;
@@ -40,12 +35,12 @@ public final class KinesisProducerWriter {
     private final Condition asyncUpload = lock.newCondition();
 
     @Inject
-    public KinesisProducerWriter(ConnectorConfig config, ExecutorManager executorManager,
-                                 KinesisResults resultsProcessor) {
-        this.stream = config.value("Stream.Name");
+    public KinesisProducerWriter(ExecutorManager executorManager, KinesisResults resultsProcessor,
+                                 AWSResources credentials) {
+        this.stream = credentials.kinesisStream();
         KinesisProducerConfiguration kCfg = new KinesisProducerConfiguration()
-                .setCredentialsProvider(credentials(config))
-                .setRegion(config.valueOrElse("Region", "us-east-1"))
+            .setCredentialsProvider(credentials.credentials())
+            .setRegion(credentials.region())
                 .setAggregationEnabled(false)
                 .setRecordMaxBufferedTime(200L)
                 .setRequestTimeout(60000)
@@ -140,36 +135,7 @@ public final class KinesisProducerWriter {
         }
     }
 
-    private AWSCredentialsProvider credentials(ConnectorConfig config) {
-        try {
-            return Optional.of(config.valueOrElse("AwsProfile", ""))
-                    .map(String::trim)
-                    .filter(profile -> !profile.isEmpty())
-                    .map(ProfileCredentialsProvider::new)
-                    .filter(p -> p.getCredentials() != null)
-                    .map(AWSCredentialsProvider.class::cast)
-                    .orElse(DefaultAWSCredentialsProviderChain.getInstance());
-        } catch (Exception e) {
-            return DefaultAWSCredentialsProviderChain.getInstance();
-        }
-    }
-
     private StreamStats getStats() {
-        return new StreamStats() {
-            @Override
-            public Long successes() {
-                return resultsProcessor.successes();
-            }
-
-            @Override
-            public Long failures() {
-                return resultsProcessor.failures();
-            }
-
-            @Override
-            public Duration totalTime() {
-                return Duration.between(resultsProcessor.start(), Instant.now());
-            }
-        };
+        return new SimpleStats(resultsProcessor.successes(), resultsProcessor.failures(), resultsProcessor.start());
     }
 }

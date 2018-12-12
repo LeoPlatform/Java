@@ -6,6 +6,7 @@ import io.leoplatform.sdk.AsyncWorkQueue;
 import io.leoplatform.sdk.ExecutorManager;
 import io.leoplatform.sdk.LoadingStream;
 import io.leoplatform.sdk.OffloadingStream;
+import io.leoplatform.sdk.aws.dynamo.DynamoReader;
 import io.leoplatform.sdk.aws.kinesis.KinesisProducerWriter;
 import io.leoplatform.sdk.aws.kinesis.KinesisQueue;
 import io.leoplatform.sdk.aws.kinesis.KinesisResults;
@@ -35,6 +36,12 @@ final class AWSModule {
     @Named("AwsOffloadingStream")
     static OffloadingStream provideOffloadingStream(ExecutorManager executorManager) {
         return new AWSOffloadingStream(executorManager);
+    }
+
+    @Singleton
+    @Provides
+    static AWSResources provideAwsResources(ConnectorConfig config) {
+        return new ConfigurationResources(config);
     }
 
     @Singleton
@@ -79,9 +86,9 @@ final class AWSModule {
 
     @Singleton
     @Provides
-    static S3TransferManager provideS3TransferManager(ConnectorConfig config, ExecutorManager executorManager,
+    static S3TransferManager provideS3TransferManager(AWSResources resources, ExecutorManager executorManager,
                                                       S3Results resultsProcessor, LoadingBot bot) {
-        return new S3TransferManager(config, executorManager, resultsProcessor, bot);
+        return new S3TransferManager(resources, executorManager, resultsProcessor, bot);
     }
 
     @Singleton
@@ -98,8 +105,14 @@ final class AWSModule {
 
     @Singleton
     @Provides
-    static KinesisProducerWriter provideKinesisWrite(ConnectorConfig config, ExecutorManager executorManager, KinesisResults resultsProcessor) {
-        return new KinesisProducerWriter(config, executorManager, resultsProcessor);
+    static KinesisProducerWriter provideKinesisWriter(ExecutorManager executorManager, KinesisResults results, AWSResources resources) {
+        return new KinesisProducerWriter(executorManager, results, resources);
+    }
+
+    @Singleton
+    @Provides
+    static DynamoReader provideDynamoReader(AWSResources resources) {
+        return new DynamoReader(resources);
     }
 
     @Singleton

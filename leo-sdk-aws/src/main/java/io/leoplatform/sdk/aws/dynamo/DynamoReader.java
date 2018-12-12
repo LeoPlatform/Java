@@ -2,9 +2,6 @@ package io.leoplatform.sdk.aws.dynamo;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.PredefinedClientConfigurations;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.document.BatchGetItemOutcome;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
@@ -12,15 +9,14 @@ import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.TableKeysAndAttributes;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr353.JSR353Module;
+import io.leoplatform.sdk.aws.AWSResources;
 import io.leoplatform.sdk.bus.OffloadingBot;
-import io.leoplatform.sdk.config.ConnectorConfig;
 import io.leoplatform.sdk.payload.EntityPayload;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS;
@@ -34,12 +30,12 @@ public final class DynamoReader {
     private final DynamoDB dynamoDB;
 
     @Inject
-    public DynamoReader(ConnectorConfig config) {
-        this.cronTable = config.value("Cron");
-        this.eventTable = config.value("Event");
+    public DynamoReader(AWSResources credentials) {
+        this.cronTable = credentials.cronTable();
+        this.eventTable = credentials.eventTable();
         this.dynamoDB = new DynamoDB(AmazonDynamoDBClientBuilder.standard()
-            .withCredentials(credentials(config))
-            .withRegion(config.valueOrElse("Region", "us-east-1"))
+            .withCredentials(credentials.credentials())
+            .withRegion(credentials.region())
             .withClientConfiguration(clientConfig())
             .build());
     }
@@ -74,20 +70,6 @@ public final class DynamoReader {
             .withConnectionTimeout(2000)
             .withRequestTimeout(5000)
             .withMaxErrorRetry(2);
-    }
-
-    private AWSCredentialsProvider credentials(ConnectorConfig config) {
-        try {
-            return Optional.of(config.valueOrElse("AwsProfile", ""))
-                .map(String::trim)
-                .filter(profile -> !profile.isEmpty())
-                .map(ProfileCredentialsProvider::new)
-                .filter(p -> p.getCredentials() != null)
-                .map(AWSCredentialsProvider.class::cast)
-                .orElse(DefaultAWSCredentialsProviderChain.getInstance());
-        } catch (Exception e) {
-            return DefaultAWSCredentialsProviderChain.getInstance();
-        }
     }
 
     private static ObjectMapper buildMapper() {

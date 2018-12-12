@@ -6,6 +6,7 @@ import io.leoplatform.sdk.ExecutorManager;
 import io.leoplatform.sdk.LoadingStream;
 import io.leoplatform.sdk.SDKModule;
 import io.leoplatform.sdk.SDKPlatform;
+import io.leoplatform.sdk.aws.dynamo.DynamoReader;
 import io.leoplatform.sdk.aws.kinesis.KinesisProducerWriter;
 import io.leoplatform.sdk.aws.kinesis.KinesisResults;
 import io.leoplatform.sdk.changes.PayloadWriter;
@@ -32,7 +33,11 @@ public interface AWSPlatform extends SDKPlatform {
 
     ThresholdMonitor thresholdMonitor();
 
-    KinesisProducerWriter kinesisWrite();
+    KinesisProducerWriter kinesisWriter();
 
     KinesisResults kinesisResults();
+
+    DynamoReader dynamoReader();
+
+    AWSResources awsResources();
 }
