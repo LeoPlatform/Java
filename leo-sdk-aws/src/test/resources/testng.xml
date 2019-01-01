@@ -8,6 +8,7 @@
             <class name="io.leoplatform.sdk.aws.payload.JacksonPayloadTest"/>
             <class name="io.leoplatform.sdk.aws.payload.JSDKGzipWriterTest"/>
             <class name="io.leoplatform.sdk.aws.payload.InternalThresholdMonitorTest"/>
+            <class name="io.leoplatform.sdk.aws.dynamo.DynamoReaderTest"/>
         </classes>
     </test>
 </suite>

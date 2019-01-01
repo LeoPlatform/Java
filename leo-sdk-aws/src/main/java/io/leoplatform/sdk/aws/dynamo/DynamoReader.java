@@ -41,20 +41,21 @@ public final class DynamoReader {
     }
 
     public Stream<EntityPayload> events(OffloadingBot bot) {
-
         TableKeysAndAttributes cron = new TableKeysAndAttributes(cronTable)
             .addHashOnlyPrimaryKey("id", bot.name());
-//        TableKeysAndAttributes event = new TableKeysAndAttributes(eventTable)
-//                .addHashOnlyPrimaryKey("event", bot.source().name());
+        TableKeysAndAttributes event = new TableKeysAndAttributes(eventTable)
+            .addHashOnlyPrimaryKey("event", bot.source().name());
 
-//        BatchGetItemOutcome outcome = dynamoDB.batchGetItem(cron, event);
-        BatchGetItemOutcome outcome = dynamoDB.batchGetItem(cron);
+        BatchGetItemOutcome outcome = dynamoDB.batchGetItem(cron, event);
 
         return outcome.getTableItems().values().stream()
             .flatMap(Collection::stream)
             .map(Item::toJSON)
             .map(this::toEntityPayload);
+    }
 
+    public void end() {
+        dynamoDB.shutdown();
     }
 
     private EntityPayload toEntityPayload(String json) {

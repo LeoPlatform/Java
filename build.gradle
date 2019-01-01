@@ -32,9 +32,6 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
-        maven {
-            url internal_url
-        }
     }
 }
 

@@ -3,50 +3,38 @@ package io.leoplatform.sdk.aws.dynamo;
 import io.leoplatform.sdk.aws.ConfigurationResources;
 import io.leoplatform.sdk.bus.SimpleOffloadingBot;
 import io.leoplatform.sdk.config.ConnectorConfig;
+import io.leoplatform.sdk.config.FileConfig;
 import io.leoplatform.sdk.payload.EntityPayload;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
 
+import static org.testng.Assert.assertNotNull;
+
 public final class DynamoReaderTest {
 
-    DynamoReader dynamoReader = new DynamoReader(new ConfigurationResources(testConfig()));
+    private DynamoReader dynamoReader;
 
-    //    @Test
+    @BeforeMethod
+    private void init() {
+        dynamoReader = new DynamoReader(new ConfigurationResources(testConfig()));
+    }
+
+    @AfterMethod
+    void destroy() {
+        dynamoReader.end();
+    }
+
+    @Test
     public void testEvents() {
         Stream<EntityPayload> p = dynamoReader.events(new SimpleOffloadingBot("test_bot", "test_queue"));
+        assertNotNull(p, "Empty or missing events");
     }
 
     private ConnectorConfig testConfig() {
-        return new ConnectorConfig() {
-            @Override
-            public String value(String key) {
-                return key.equals("Cron") ? "LeoDev-Bus-NQQPNFKOGCH0-LeoCron-MHLFTV8UVHHM" : "LeoDev-Bus-NQQPNFKOGCH0-LeoEvent-1DQB1MJ403WL6";
-            }
-
-            @Override
-            public Long longValue(String key) {
-                return null;
-            }
-
-            @Override
-            public Integer intValue(String key) {
-                return null;
-            }
-
-            @Override
-            public String valueOrElse(String key, String orElse) {
-                return key.equals("AwsProfile") ? "leo_test" : "us-west-1";
-            }
-
-            @Override
-            public Long longValueOrElse(String key, Long orElse) {
-                return 0L;
-            }
-
-            @Override
-            public Integer intValueOrElse(String key, Integer orElse) {
-                return null;
-            }
-        };
+        System.setProperty("JAVA_ENV", "DevBus");
+        return new FileConfig();
     }
 }
