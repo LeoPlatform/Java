@@ -55,6 +55,11 @@ public final class ConfigurationResources implements AWSResources {
     }
 
     @Override
+    public String streamTable() {
+        return config.value("Stream.Table");
+    }
+
+    @Override
     public String storage() {
         return config.value("Storage.Name");
     }

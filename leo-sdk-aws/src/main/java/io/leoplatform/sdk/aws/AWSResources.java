@@ -14,5 +14,7 @@ public interface AWSResources {
 
     String eventTable();
 
+    String streamTable();
+
     String storage();
 }
