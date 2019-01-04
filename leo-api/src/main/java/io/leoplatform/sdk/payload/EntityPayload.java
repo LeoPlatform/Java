@@ -23,6 +23,7 @@ public final class EntityPayload {
     private final String event;
     private final Long event_source_timestamp;
     private final Long timestamp;
+    private final Long eid;
     private final StreamCorrelation correlation_id;
 
     public EntityPayload(EventPayload eventPayload, LoadingBot bot) {
@@ -31,11 +32,24 @@ public final class EntityPayload {
         this.event = bot.destination().name();
         Instant now = Instant.now();
         this.event_source_timestamp = Optional.of(eventPayload)
-                .map(EventPayload::eventTime)
-                .orElse(now)
-                .toEpochMilli();
+            .map(EventPayload::eventTime)
+            .orElse(now)
+            .toEpochMilli();
         this.timestamp = now.toEpochMilli();
+        this.eid = null;
         this.correlation_id = eventPayload.streamCorrelation();
+    }
+
+    public EntityPayload(JsonObject jo) {
+        this.payload = jo.getJsonObject("payload");
+        this.id = jo.getString("id");
+        this.event = jo.getString("event");
+        this.event_source_timestamp = jo.getJsonNumber("event_source_timestamp").longValue();
+        this.timestamp = Instant.now().toEpochMilli();
+        this.eid = jo.getJsonNumber("eid").longValue();
+        JsonObject sc = jo.getJsonObject("correlation_id");
+        this.correlation_id = new StreamCorrelation(sc.getString("source", null), sc.getString("start", null),
+            sc.getJsonNumber("units").longValue(), sc.getString("end", null));
     }
 
     /**
@@ -82,6 +96,10 @@ public final class EntityPayload {
         return timestamp;
     }
 
+    public Long getEid() {
+        return eid;
+    }
+
     /**
      * Metadata related to the contents of the payload allowing the entities to be traced back to their
      * original source.
@@ -89,5 +107,11 @@ public final class EntityPayload {
      */
     public StreamCorrelation getCorrelation_id() {
         return correlation_id;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("EntityPayload{payload=%s, id='%s', event='%s', event_source_timestamp=%d, timestamp=%d, eid=%d, correlation_id=%s}",
+            payload, id, event, event_source_timestamp, timestamp, eid, correlation_id);
     }
 }

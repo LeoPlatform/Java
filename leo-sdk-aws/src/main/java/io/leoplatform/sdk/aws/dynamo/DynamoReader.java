@@ -9,9 +9,11 @@ import com.amazonaws.services.dynamodbv2.document.TableKeysAndAttributes;
 import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr353.JSR353Module;
+import com.jcraft.jzlib.GZIPInputStream;
 import io.leoplatform.sdk.aws.AWSResources;
 import io.leoplatform.sdk.bus.OffloadingBot;
 import io.leoplatform.sdk.payload.EntityPayload;
+import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,17 +22,22 @@ import javax.inject.Singleton;
 import javax.json.Json;
 import javax.json.JsonNumber;
 import javax.json.JsonObject;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity.TOTAL;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS;
 import static java.time.ZoneOffset.UTC;
+import static java.util.regex.Pattern.LITERAL;
 import static javax.json.JsonValue.EMPTY_JSON_OBJECT;
 
 @Singleton
@@ -41,6 +48,7 @@ public final class DynamoReader {
     private static final DateTimeFormatter checkpointFormat = DateTimeFormatter
         .ofPattern("'z/'uuuu'/'MM'/'dd")
         .withZone(UTC);
+    private static final Pattern payloadSeparator = Pattern.compile("\r?\n", LITERAL);
     private final String cronTable;
     private final String eventTable;
     private final String streamTable;
@@ -59,9 +67,8 @@ public final class DynamoReader {
     }
 
     public Stream<EntityPayload> events(OffloadingBot bot) {
-
         Map<String, List<Item>> eventItems = eventItems(bot);
-        JsonObject queueMetadata = queueMetadata(eventItems);
+        JsonObject queueMetadata = queueJson(eventItems);
         String checkpoint = findCheckpoint(bot, eventItems, queueMetadata);
         log.info("Reading event from {}", checkpoint);
 
@@ -78,11 +85,12 @@ public final class DynamoReader {
             }})
             .withMaxResultSize(50)
             .withReturnConsumedCapacity(TOTAL);
-        log.debug("Executing query", eventQuery.getSelect());
 
         return StreamSupport.stream(dynamoDB.getTable(streamTable).query(eventQuery).spliterator(), true)
             .map(Item::toJSON)
-            .map(this::toEntityPayload);
+            .map(this::toJson)
+            .flatMap(this::decode)
+            .map(this::inflate);
     }
 
     private String maxEid(JsonObject queueMetadata) {
@@ -98,14 +106,6 @@ public final class DynamoReader {
         } else {
             return checkpointLegacy(eventItems);
         }
-    }
-
-    private JsonObject queueMetadata(Map<String, List<Item>> eventItems) {
-        return eventItems.getOrDefault(eventTable, Collections.emptyList()).stream()
-            .findFirst()
-            .map(Item::toJSON)
-            .map(this::toJson)
-            .orElse(EMPTY_JSON_OBJECT);
     }
 
     private Map<String, List<Item>> eventItems(OffloadingBot bot) {
@@ -138,7 +138,14 @@ public final class DynamoReader {
             .map(c -> c.getJsonObject("queue:" + botName))
             .map(c -> c.getString("checkpoint"))
             .orElse(defaultCheckpointStart());
+    }
 
+    private JsonObject queueJson(Map<String, List<Item>> eventItems) {
+        return eventItems.getOrDefault(eventTable, Collections.emptyList()).stream()
+            .findFirst()
+            .map(Item::toJSON)
+            .map(this::toJson)
+            .orElse(EMPTY_JSON_OBJECT);
     }
 
     private JsonObject botJson(Map<String, List<Item>> eventItems) {
@@ -166,11 +173,19 @@ public final class DynamoReader {
         dynamoDB.shutdown();
     }
 
-    private EntityPayload toEntityPayload(String json) {
-        try {
-            return mapper.readValue(json, EntityPayload.class);
+    private Stream<ByteBuffer> decode(JsonObject json) {
+        return payloadSeparator.splitAsStream(json.getString("gzip"))
+            .parallel()
+            .map(Base64::decodeBase64)
+            .map(ByteBuffer::wrap);
+    }
+
+    private EntityPayload inflate(ByteBuffer compressed) {
+        try (InputStream is = new GZIPInputStream(new ByteArrayInputStream(compressed.array()))) {
+            JsonObject jo = Json.createReader(is).readObject();
+            return new EntityPayload(jo);
         } catch (IOException e) {
-            throw new IllegalStateException("Invalid entity payload JSON", e);
+            throw new IllegalStateException("Could not inflate payload", e);
         }
     }
 

@@ -7,15 +7,15 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 @JsonInclude(NON_NULL)
 public final class StreamCorrelation {
     private final String source;
-    private final Long start;
+    private final String start;
     private final Long units;
-    private final Long end;
+    private final String end;
 
-    public StreamCorrelation(String source, Long start) {
+    public StreamCorrelation(String source, String start) {
         this(source, start, null, null);
     }
 
-    public StreamCorrelation(String source, Long start, Long units, Long end) {
+    public StreamCorrelation(String source, String start, Long units, String end) {
         this.source = source;
         this.start = start;
         this.units = units;
@@ -26,7 +26,7 @@ public final class StreamCorrelation {
         return source;
     }
 
-    public Long getStart() {
+    public String getStart() {
         return start;
     }
 
@@ -34,7 +34,7 @@ public final class StreamCorrelation {
         return units;
     }
 
-    public Long getEnd() {
+    public String getEnd() {
         return end;
     }
 }
