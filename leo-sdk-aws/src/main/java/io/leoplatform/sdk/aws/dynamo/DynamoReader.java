@@ -7,8 +7,6 @@ import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.TableKeysAndAttributes;
 import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr353.JSR353Module;
 import com.jcraft.jzlib.GZIPInputStream;
 import io.leoplatform.sdk.aws.AWSResources;
 import io.leoplatform.sdk.bus.OffloadingBot;
@@ -35,7 +33,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity.TOTAL;
-import static com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS;
 import static java.time.ZoneOffset.UTC;
 import static java.util.regex.Pattern.LITERAL;
 import static javax.json.JsonValue.EMPTY_JSON_OBJECT;
@@ -44,7 +41,6 @@ import static javax.json.JsonValue.EMPTY_JSON_OBJECT;
 public final class DynamoReader {
     private static final Logger log = LoggerFactory.getLogger(DynamoReader.class);
 
-    private final ObjectMapper mapper = buildMapper();
     private static final DateTimeFormatter checkpointFormat = DateTimeFormatter
         .ofPattern("'z/'uuuu'/'MM'/'dd")
         .withZone(UTC);
@@ -195,11 +191,4 @@ public final class DynamoReader {
             .withRequestTimeout(5000)
             .withMaxErrorRetry(2);
     }
-
-    private static ObjectMapper buildMapper() {
-        return new ObjectMapper()
-            .setSerializationInclusion(ALWAYS)
-            .registerModule(new JSR353Module());
-    }
-
 }
